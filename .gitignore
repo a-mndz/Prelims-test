@@ -1,0 +1,12 @@
+# Secrets — never committed (RULES #7, plan §8)
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db

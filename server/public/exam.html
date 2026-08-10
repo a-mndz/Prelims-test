@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Timed preliminary-round programming exam platform." />
+    <meta name="theme-color" content="#182231" />
+    <title>Preliminary Round Exam</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23182231'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='Segoe UI,sans-serif' font-size='15' font-weight='800' fill='%23f7f9fb'%3EP/%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/exam.css" />
+    <script>
+      // Apply saved theme before first paint to avoid a light-mode flash.
+      (() => {
+        const saved = localStorage.getItem("exam-theme");
+        const theme = saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to exam content</a>
+
+    <header class="app-header">
+      <a class="brand" href="/" aria-label="Preliminary Round home">
+        <span class="brand-mark" aria-hidden="true">P/</span>
+        <span class="brand-copy">
+          <strong>Preliminary Round</strong>
+          <span>Programming competition</span>
+        </span>
+      </a>
+
+      <div class="header-status">
+        <div id="save-status" class="save-status hidden" role="status" aria-live="polite"></div>
+        <div id="timer-box" class="timer-box hidden" aria-label="Time remaining">
+          <span class="timer-label">Time left</span>
+          <span id="timer-display">00:00</span>
+        </div>
+        <span id="timer-announce" class="sr-only" role="status" aria-live="polite"></span>
+        <span id="user-role-badge" class="role-badge">Guest</span>
+        <button id="theme-toggle" class="button button-quiet" type="button" aria-pressed="false" aria-label="Switch to dark theme">Dark</button>
+        <button id="logout-btn" class="button button-quiet hidden" type="button">Log out</button>
+      </div>
+    </header>
+
+    <main id="main-content" class="container">
+      <section id="view-loading" class="view-section loading-view" aria-labelledby="loading-title">
+        <span class="loading-line" aria-hidden="true"></span>
+        <h1 id="loading-title">Checking your session</h1>
+        <p>Restoring secure exam access.</p>
+      </section>
+
+      <section id="view-auth" class="view-section auth-layout hidden" aria-labelledby="auth-title">
+        <div class="auth-intro">
+          <p class="section-label">Candidate access</p>
+          <h1 id="auth-title">Stay focused on the questions.</h1>
+          <p>Answers save after every selection. Timing and submission are enforced by the server, even if this page disconnects.</p>
+          <dl class="assurance-list">
+            <div><dt>Single attempt</dt><dd>Your session stays tied to this account.</dd></div>
+            <div><dt>Server timed</dt><dd>Refreshing does not reset the clock.</dd></div>
+            <div><dt>Private scoring</dt><dd>Results remain available to administrators only.</dd></div>
+          </dl>
+        </div>
+
+        <div class="auth-panel">
+          <div class="auth-tabs" role="group" aria-label="Sign-in role">
+            <button id="tab-participant" class="tab-button active" type="button" aria-pressed="true" data-role="participant">Participant</button>
+            <button id="tab-admin" class="tab-button" type="button" aria-pressed="false" data-role="admin">Administrator</button>
+          </div>
+
+          <div class="panel-heading">
+            <h2>Sign in</h2>
+            <p id="auth-description">Use credentials issued for this round.</p>
+          </div>
+          <div id="auth-alert" class="alert alert-danger hidden" role="alert"></div>
+
+          <form id="login-form" aria-describedby="auth-description">
+            <div class="form-group">
+              <label for="login-username">Username</label>
+              <input type="text" id="login-username" class="form-input" autocomplete="username" required />
+            </div>
+            <div class="form-group">
+              <label for="login-password">Password</label>
+              <input type="password" id="login-password" class="form-input" autocomplete="current-password" required />
+            </div>
+            <button id="login-button" type="submit" class="button button-primary button-wide">Sign in</button>
+          </form>
+        </div>
+      </section>
+
+      <section id="view-start" class="view-section start-layout hidden" aria-labelledby="start-title">
+        <div class="start-copy">
+          <p class="section-label">Before you begin</p>
+          <h1 id="start-title">Ready for your preliminary round?</h1>
+          <p>Starting is final. Your server-side clock begins immediately and continues through refreshes or brief connection loss.</p>
+          <div id="start-alert" class="alert alert-danger hidden" role="alert"></div>
+          <button id="start-button" class="button button-primary" type="button">Start exam</button>
+        </div>
+
+        <div class="briefing-panel" aria-label="Exam briefing">
+          <dl class="exam-facts">
+            <div><dt>Questions</dt><dd id="start-total">--</dd></div>
+            <div><dt>Duration</dt><dd id="start-duration">--</dd></div>
+          </dl>
+          <ul class="instruction-list">
+            <li>Choose one answer per question. Every change autosaves.</li>
+            <li>Flag questions you want to review before submission.</li>
+            <li>The exam runs in fullscreen. Leaving the exam window, exiting fullscreen, or using copy/paste will abort and submit your attempt.</li>
+            <li>Submission locks all responses and cannot be reversed.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="view-exam" class="view-section exam-layout hidden" aria-labelledby="q-prompt">
+        <article class="question-panel">
+          <div class="question-toolbar">
+            <div class="question-meta">
+              <span id="q-subject" class="subject-tag">Subject</span>
+              <span id="q-number" class="question-number">Question 1 of 1</span>
+            </div>
+            <button id="flag-btn" class="button flag-button" type="button" aria-pressed="false">Flag for review</button>
+          </div>
+
+          <h1 id="q-prompt" class="question-prompt">Loading question</h1>
+          <pre id="q-code" class="code-block hidden"><code></code></pre>
+
+          <fieldset id="options-list" class="options-list">
+            <legend class="sr-only">Choose one answer</legend>
+          </fieldset>
+
+          <div class="question-actions">
+            <button id="btn-prev" class="button button-secondary" type="button">Previous</button>
+            <button id="btn-next" class="button button-secondary" type="button">Next question</button>
+          </div>
+        </article>
+
+        <aside class="navigator-panel" aria-labelledby="navigator-title">
+          <div class="navigator-heading">
+            <div>
+              <h2 id="navigator-title">Question navigator</h2>
+              <p id="stat-answered" class="answered-stat" aria-live="polite">0 of 0 answered</p>
+            </div>
+          </div>
+          <div id="question-grid" class="question-grid"></div>
+
+          <div class="legend" aria-label="Question state legend">
+            <span><i class="dot dot-answered"></i>Answered</span>
+            <span><i class="dot dot-flagged"></i>Flagged</span>
+            <span><i class="dot dot-current"></i>Current</span>
+            <span><i class="dot dot-unsynced"></i>Not saved</span>
+          </div>
+
+          <button id="open-submit-button" class="button button-primary button-wide submit-button" type="button">Review and submit</button>
+        </aside>
+      </section>
+
+      <section id="view-submitted" class="view-section submitted-view hidden" aria-labelledby="submitted-title">
+        <div class="status-mark" aria-hidden="true">✓</div>
+        <p class="section-label">Attempt locked</p>
+        <h1 id="submitted-title">Exam submitted</h1>
+        <p id="submitted-note">Your responses were recorded. Results will be shared after administrators complete grading and review.</p>
+      </section>
+
+      <section id="view-admin" class="view-section admin-view hidden" aria-labelledby="admin-title">
+        <div class="admin-heading">
+          <div>
+            <p class="section-label">Administrator</p>
+            <h1 id="admin-title">Results and review</h1>
+            <p>Scores are final after submission. Violation signals support manual review — they do not prove misconduct by themselves.</p>
+          </div>
+          <button id="refresh-violations" class="button button-secondary" type="button">Refresh</button>
+        </div>
+
+        <h2 class="admin-subheading">Leaderboard</h2>
+        <div class="leaderboard-controls">
+          <label for="leaderboard-sort">Sort by</label>
+          <select id="leaderboard-sort" class="form-input sort-select">
+            <option value="score" selected>Score (high to low)</option>
+            <option value="name">Participant name</option>
+            <option value="status">Exam status</option>
+          </select>
+        </div>
+        <div class="table-wrap" tabindex="0" aria-label="Leaderboard, scroll horizontally if needed">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Rank</th>
+                <th scope="col">Participant</th>
+                <th scope="col">Score</th>
+                <th scope="col">Exam status</th>
+                <th scope="col">Submitted by</th>
+                <th scope="col">Conduct</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-tbody"></tbody>
+          </table>
+        </div>
+
+        <h2 class="admin-subheading">Add participant</h2>
+        <div class="create-user-panel">
+          <p class="create-user-note">Allocate usernames and passwords (up to 10 at a time), then share them with the participants privately.</p>
+          <div id="create-user-alert" class="alert alert-danger hidden" role="alert"></div>
+          <form id="create-user-form" class="create-user-form">
+            <div id="create-user-rows"></div>
+            <div class="create-user-actions">
+              <button type="button" id="add-user-row" class="button">Add row</button>
+              <button id="create-user-button" type="submit" class="button button-primary">Create participants</button>
+            </div>
+          </form>
+        </div>
+
+        <h2 class="admin-subheading">Violation log</h2>
+        <div class="table-wrap" tabindex="0" aria-label="Violation log, scroll horizontally if needed">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Participant</th>
+                <th scope="col">Strikes</th>
+                <th scope="col">Events</th>
+                <th scope="col">Last recorded</th>
+              </tr>
+            </thead>
+            <tbody id="violations-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="submit-modal" class="submit-dialog" aria-labelledby="submit-title" aria-describedby="submit-description">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <p class="section-label">Final check</p>
+          <h2 id="submit-title">Submit this attempt?</h2>
+          <p id="submit-description">Submission locks every answer. This action cannot be undone.</p>
+        </div>
+
+        <dl class="review-counts">
+          <div><dt>Answered</dt><dd id="modal-answered">0</dd></div>
+          <div><dt>Unanswered</dt><dd id="modal-unanswered">0</dd></div>
+          <div><dt>Flagged</dt><dd id="modal-flagged">0</dd></div>
+        </dl>
+        <div id="submit-alert" class="alert alert-danger hidden" role="alert"></div>
+
+        <div class="dialog-actions">
+          <button id="close-submit-button" class="button button-secondary" type="button">Return to exam</button>
+          <button id="confirm-submit-button" class="button button-primary" type="button">Submit attempt</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="/anticheat.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

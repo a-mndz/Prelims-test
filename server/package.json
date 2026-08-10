@@ -1,0 +1,11 @@
+{
+  "name": "prelims-server",
+  "private": true,
+  "type": "module",
+  "description": "Competition prelim — Phase 1 auth & session (plan v2 §2)",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=22" }
+}
