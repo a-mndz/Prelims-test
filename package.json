@@ -1,0 +1,6 @@
+﻿{
+  "name": "prelims",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" }
+}

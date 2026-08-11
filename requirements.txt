@@ -1,0 +1,10 @@
+# No Python packages are required to install this project.
+# This application is a Node.js project and uses only standard-library modules.
+# Runtime requirement: Node.js >= 22
+# Optional production requirement: PostgreSQL database service
+# No third-party npm packages are listed in package.json.
+
+# Install steps:
+# 1. Install Node.js >= 22
+# 2. From the server directory, run npm install (no dependencies are declared)
+# 3. For production, provision PostgreSQL and configure DATABASE_URL
