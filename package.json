@@ -2,5 +2,10 @@
   "name": "prelims",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "pg": "^8.23.0"
+  }
 }
