@@ -29,6 +29,9 @@ export const config = {
   isProd,
   port: int("PORT", 3000),
 
+  // Database Connection URL (supports DATABASE_URL or Vercel Supabase POSTGRES_URL)
+  dbUrl: env.DATABASE_URL || env.POSTGRES_URL || env.POSTGRES_URL_NON_POOLING || null,
+
   // Secrets (RULES #7 — different per environment)
   jwtSecret: required("JWT_SECRET"),
 
