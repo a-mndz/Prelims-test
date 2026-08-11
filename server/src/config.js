@@ -85,7 +85,7 @@ export const config = {
     blurThreshold: int("BLUR_THRESHOLD", 3),
     // "flag_for_review" | "warn" | "auto_submit" — flag is a signal for human judgment,
     // never an automatic disqualification (plan §5: consequence is a policy choice).
-    consequence: env.BLUR_CONSEQUENCE || "flag_for_review",
+    consequence: env.BLUR_CONSEQUENCE || "auto_submit",
   },
 };
 
