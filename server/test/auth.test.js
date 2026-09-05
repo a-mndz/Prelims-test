@@ -14,6 +14,17 @@ import { config, tokenTtlSec } from "../src/config.js";
 // --- minimal req/res doubles so we can drive app.handle without a socket ---
 function mockReq({ method = "GET", url = "/", headers = {}, body } = {}) {
   const listeners = {};
+  let emitted = false;
+  let flushed = false;
+  // Real http.IncomingMessage buffers the body until a consumer attaches. The router
+  // awaits auth (async store) before readJsonBody, so emitting eagerly dropped the body
+  // and the request hung forever. Deliver it whenever the listeners actually show up.
+  const flush = () => {
+    if (!emitted || flushed || !listeners.end) return;
+    flushed = true;
+    if (body !== undefined) listeners.data?.(Buffer.from(JSON.stringify(body)));
+    listeners.end();
+  };
   const req = {
     method,
     url,
@@ -21,12 +32,14 @@ function mockReq({ method = "GET", url = "/", headers = {}, body } = {}) {
     socket: { remoteAddress: headers["x-ip"] || "127.0.0.1" },
     on(ev, fn) {
       listeners[ev] = fn;
+      flush();
       return req;
     },
     destroy() {},
+    pause() {},
     _emit() {
-      if (body !== undefined) listeners.data?.(Buffer.from(JSON.stringify(body)));
-      listeners.end?.();
+      emitted = true;
+      flush();
     },
   };
   return req;
@@ -76,8 +89,8 @@ function cookieFrom(res) {
   return sc.split(";")[0].split("=").slice(1).join("=");
 }
 
-function freshApp() {
-  const store = seedStore(createStore());
+async function freshApp() {
+  const store = await seedStore(createStore());
   return createApp(store, createRateLimiter());
 }
 
@@ -101,7 +114,7 @@ test("JWT verify rejects forged/expired/tampered tokens (plan §7 forged-JWT)", 
 
 // --- cookie posture (plan §7 cookie posture) ---
 test("login sets httpOnly + Secure + SameSite=Strict cookie", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const res = await call(app, {
     method: "POST",
     url: "/api/auth/participant/login",
@@ -115,7 +128,7 @@ test("login sets httpOnly + Secure + SameSite=Strict cookie", async () => {
 });
 
 test("state-changing request without CSRF header is rejected (plan §2.1)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const res = await call(app, {
     method: "POST",
     url: "/api/auth/participant/login",
@@ -128,7 +141,7 @@ test("state-changing request without CSRF header is rejected (plan §2.1)", asyn
 
 // --- role enforcement (plan §7 cross-role) ---
 test("participant token gets 403 on every /api/admin/* route", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const login = await call(app, {
     method: "POST",
     url: "/api/auth/participant/login",
@@ -142,7 +155,7 @@ test("participant token gets 403 on every /api/admin/* route", async () => {
 });
 
 test("admin token gets 403 on /api/exam/*", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const login = await call(app, {
     method: "POST",
     url: "/api/auth/admin/login",
@@ -158,7 +171,7 @@ test("admin token gets 403 on /api/exam/*", async () => {
 });
 
 test("forged admin JWT (wrong secret) is rejected by /api/admin/*", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const forged = signJwt({ sub: 1, role: "admin" }, "not-the-real-secret", 3600);
   const res = await call(app, {
     method: "GET",
@@ -170,7 +183,7 @@ test("forged admin JWT (wrong secret) is rejected by /api/admin/*", async () => 
 
 // --- single active session (plan §7 session exclusivity) ---
 test("new login supersedes old session: old cookie -> 401, takeover logged", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const creds = { username: "participant1", password: "change-me-participant" };
   const loginA = await call(app, { method: "POST", url: "/api/auth/participant/login", body: creds });
   const cookieA = cookieFrom(loginA);
@@ -210,7 +223,7 @@ test("new login supersedes old session: old cookie -> 401, takeover logged", asy
 });
 
 test("session bootstrap restores role and logout revokes participant session", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const login = await call(app, {
     method: "POST",
     url: "/api/auth/participant/login",
@@ -233,7 +246,7 @@ test("session bootstrap restores role and logout revokes participant session", a
 // the dummy-hash path (crypto.DUMMY_PASSWORD_HASH) also equalizes timing to close the
 // username-enumeration oracle. We assert the observable half: identical status + body.
 test("unknown user and wrong password are indistinguishable (no enumeration)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const noUser = await call(app, {
     method: "POST",
     url: "/api/auth/participant/login",
@@ -253,7 +266,7 @@ test("unknown user and wrong password are indistinguishable (no enumeration)", a
 
 // --- rate limits (plan §7 event-flood / §2.3) ---
 test("participant login is rate-limited per IP", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const bad = { username: "participant1", password: "wrong" };
   let last;
   for (let i = 0; i < config.rateLimits.participantLogin + 2; i++) {
@@ -268,7 +281,7 @@ test("participant login is rate-limited per IP", async () => {
 });
 
 test("participant write endpoint is rate-limited per participant", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const login = await call(app, {
     method: "POST",
     url: "/api/auth/participant/login",
@@ -288,7 +301,7 @@ test("participant write endpoint is rate-limited per participant", async () => {
 });
 
 test("account locks out after threshold consecutive failures", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const pid = app.store.getParticipantByUsername("participant1").id;
   // Force the counter to the threshold, then a correct password must still fail.
   for (let i = 0; i < config.loginLockoutThreshold; i++) app.store.bumpParticipantFailure(pid);
@@ -304,7 +317,7 @@ test("account locks out after threshold consecutive failures", async () => {
 // Admin lockout is IP-scoped, not account-scoped (audit fix): an attacker flooding bad
 // admin passwords locks only their own IP, never the legitimate admin from elsewhere.
 test("admin lockout is scoped to the source IP, not the account", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const attackerIp = "6.6.6.6";
   // Drive the attacker IP to the threshold, then a CORRECT password from that IP still fails.
   for (let i = 0; i < config.loginLockoutThreshold; i++) app.store.bumpAdminFailure(attackerIp);

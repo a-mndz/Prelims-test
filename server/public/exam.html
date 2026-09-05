@@ -208,6 +208,30 @@
           </form>
         </div>
 
+
+        <h2 class="admin-subheading">Administrator credentials</h2>
+        <div class="create-user-panel">
+          <p class="create-user-note">Change your own sign-in username or password. Your current password is required. Leave a field blank to keep it unchanged.</p>
+          <div id="admin-creds-alert" class="alert alert-danger hidden" role="alert"></div>
+          <form id="admin-creds-form" class="create-user-form">
+            <div class="form-group">
+              <label for="admin-creds-current">Current password</label>
+              <input type="password" id="admin-creds-current" class="form-input" autocomplete="current-password" required />
+            </div>
+            <div class="form-group">
+              <label for="admin-creds-username">New username <span class="field-hint">(optional)</span></label>
+              <input type="text" id="admin-creds-username" class="form-input" autocomplete="username" />
+            </div>
+            <div class="form-group">
+              <label for="admin-creds-new">New password <span class="field-hint">(optional, at least 8 characters)</span></label>
+              <input type="password" id="admin-creds-new" class="form-input" autocomplete="new-password" minlength="8" />
+            </div>
+            <div class="create-user-actions">
+              <button id="admin-creds-button" type="submit" class="button button-primary">Update credentials</button>
+            </div>
+          </form>
+        </div>
+
         <h2 class="admin-subheading">Violation log</h2>
         <div class="table-wrap" tabindex="0" aria-label="Violation log, scroll horizontally if needed">
           <table class="data-table">

@@ -17,6 +17,17 @@ import { config } from "../src/config.js";
 // --- request/response doubles (same shape as exam.test.js / auth.test.js) ---
 function mockReq({ method = "GET", url = "/", headers = {}, body } = {}) {
   const listeners = {};
+  let emitted = false;
+  let flushed = false;
+  // Real http.IncomingMessage buffers the body until a consumer attaches. The router
+  // awaits auth (async store) before readJsonBody, so emitting eagerly dropped the body
+  // and the request hung forever. Deliver it whenever the listeners actually show up.
+  const flush = () => {
+    if (!emitted || flushed || !listeners.end) return;
+    flushed = true;
+    if (body !== undefined) listeners.data?.(Buffer.from(JSON.stringify(body)));
+    listeners.end();
+  };
   const req = {
     method,
     url,
@@ -24,12 +35,14 @@ function mockReq({ method = "GET", url = "/", headers = {}, body } = {}) {
     socket: { remoteAddress: headers["x-ip"] || "127.0.0.1" },
     on(ev, fn) {
       listeners[ev] = fn;
+      flush();
       return req;
     },
     destroy() {},
+    pause() {},
     _emit() {
-      if (body !== undefined) listeners.data?.(Buffer.from(JSON.stringify(body)));
-      listeners.end?.();
+      emitted = true;
+      flush();
     },
   };
   return req;
@@ -73,8 +86,8 @@ async function call(app, opts) {
 function cookieFrom(res) {
   return res.headers["set-cookie"].split(";")[0].split("=").slice(1).join("=");
 }
-function freshApp() {
-  const store = seedStore(createStore());
+async function freshApp() {
+  const store = await seedStore(createStore());
   return createApp(store, createRateLimiter());
 }
 async function loginParticipant(app) {
@@ -127,7 +140,7 @@ test("grade scores every correct option to full and each wrong option to zero (R
 
 // --- atomic CAS submit: exactly one grading run under a concurrent race (plan §4.3) ---
 test("N concurrent submits: exactly one 200/grading run, the rest 409 (RULES #4)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   await call(app, {
@@ -156,7 +169,7 @@ test("N concurrent submits: exactly one 200/grading run, the rest 409 (RULES #4)
 
 // --- expiry check on every write (plan §4.1, RULES #5) ---------------------------
 test("writes past duration+grace return 403 exam_expired (plan §4.1)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   // Backdate the session well past the deadline (server clock is the only clock).
@@ -176,7 +189,7 @@ test("writes past duration+grace return 403 exam_expired (plan §4.1)", async ()
 
 // --- expiry boundary: arrival time is the sole criterion (plan §4.1) -------------
 test("PATCH just inside grace accepted, just outside rejected (plan §4.1 boundary)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   const s = app.store.getExamSession(P1);
@@ -205,7 +218,7 @@ test("PATCH just inside grace accepted, just outside rejected (plan §4.1 bounda
 
 // --- sweep auto-submits + grades exactly the autosaved answers (plan §4.1) -------
 test("sweep transitions expired IN_PROGRESS to SUBMITTED and grades autosaved answers", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   await call(app, {
@@ -215,21 +228,21 @@ test("sweep transitions expired IN_PROGRESS to SUBMITTED and grades autosaved an
     body: { questionId: "c-01", optionId: "b" }, // correct
   });
   // Not yet expired → sweep is a no-op.
-  assert.equal(app.exam.sweepExpired(), 0, "in-window session is not swept");
+  assert.equal(await app.exam.sweepExpired(), 0, "in-window session is not swept");
   // Backdate past the deadline → sweep submits it (client never called /submit).
   app.store.getExamSession(P1).exam_started_at = Date.now() - (cutoffMs + 1000);
-  assert.equal(app.exam.sweepExpired(), 1, "expired session is swept once");
+  assert.equal(await app.exam.sweepExpired(), 1, "expired session is swept once");
   assert.equal(app.store.getExamSession(P1).status, "SUBMITTED");
   const result = app.store.getResult(P1);
   assert.equal(result.correct, 1, "graded the one autosaved correct answer");
   assert.equal(result.submitted_by, "sweep");
   // Sweep is idempotent — a second pass finds nothing IN_PROGRESS.
-  assert.equal(app.exam.sweepExpired(), 0, "second sweep is a no-op");
+  assert.equal(await app.exam.sweepExpired(), 0, "second sweep is a no-op");
 });
 
 // --- sweep-vs-submit race: one submission, one grading run (plan §4.1 + §4.3) ----
 test("manual submit racing the sweep yields exactly one SUBMITTED transition", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   app.store.getExamSession(P1).exam_started_at = Date.now() - (cutoffMs + 1000);
@@ -250,7 +263,7 @@ test("manual submit racing the sweep yields exactly one SUBMITTED transition", a
 
 // --- results are admin-only; a participant token never reaches a score (plan §6) --
 test("results endpoint: participant 403, admin gets the score after submit", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie: pCookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie: pCookie } });
   await call(app, {

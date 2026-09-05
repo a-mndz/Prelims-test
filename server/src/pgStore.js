@@ -1,24 +1,120 @@
 import pg from "pg";
+import { readFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { newSessionId } from "./crypto.js";
 const { Pool } = pg;
 
-export function createPgStore(connectionString) {
-  let connStr = connectionString;
+// schema.sql is the single source of truth for the shape of the database and is written to
+// be idempotent, so it can be applied on the first connection of every process instead of
+// depending on somebody having run it by hand. Without this, pointing the app at a fresh
+// managed database (Supabase, Neon, RDS) makes the very first INSERT fail with
+// 42P01 "relation \"participants\" does not exist" — the admin portal reports a 500 and no
+// participant is ever saved.
+//
+// The read is deliberately not allowed to break module import: this file is not reachable
+// through import tracing (it is data, not code) and only ships because vercel.json's
+// includeFiles names "server/src/**". If that ever stops matching, a throw here would take
+// down every route including /health; deferring it to ensureSchema() turns it into one
+// legible bootstrap error instead.
+let schemaReadError = null;
+let schemaSql = "";
+try {
+  schemaSql = readFileSync(new URL("./schema.sql", import.meta.url), "utf8");
+} catch (err) {
+  schemaReadError = err;
+}
+export const SCHEMA_SQL = schemaSql;
+
+// `client` is anything with a .query() — a Pool, a PoolClient, or a fake in tests.
+export async function ensureSchema(client) {
+  if (schemaReadError) {
+    throw new Error(
+      `Cannot read server/src/schema.sql, so the database schema cannot be applied: ` +
+        `${schemaReadError.message}. Check that vercel.json includeFiles still ships ` +
+        `server/src/**.`
+    );
+  }
+  await client.query(SCHEMA_SQL);
+}
+
+// node-postgres does not understand sslmode in the URL; it is stripped and translated into
+// the ssl option below. Supabase terminates TLS with a certificate chain Node does not
+// trust by default, hence rejectUnauthorized: false.
+function normalizeUrl(connectionString) {
   try {
     const parsed = new URL(connectionString);
     parsed.searchParams.delete("sslmode");
-    connStr = parsed.toString();
-  } catch {}
+    return parsed.toString();
+  } catch {
+    return connectionString;
+  }
+}
 
-  const pool = new Pool({
+function sslFor(connectionString) {
+  return connectionString.includes("sslmode=disable") ? false : { rejectUnauthorized: false };
+}
+
+export function createPgStore(connectionString, options = {}) {
+  const connStr = normalizeUrl(connectionString);
+  const directUrl = options.directConnectionString || null;
+  // Seam for tests: the schema bootstrap below is the fix for "created participants are not
+  // saved", and asserting it runs once (and retries after a failure) must not require a
+  // reachable database.
+  const makePool = options.poolFactory || ((cfg) => new Pool(cfg));
+
+  // Every warm serverless instance keeps its own pool, so a per-instance max of 10 burns
+  // through Supabase's connection budget once a handful of instances are live. Keep it
+  // small under Vercel and let an operator override it.
+  const poolMax =
+    Number.parseInt(process.env.PG_POOL_MAX || "", 10) || (process.env.VERCEL ? 2 : 10);
+
+  const pool = makePool({
     connectionString: connStr,
-    ssl: connectionString.includes("sslmode=disable") ? false : { rejectUnauthorized: false },
-    max: 10,
+    ssl: sslFor(connectionString),
+    max: poolMax,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
   });
 
+
+  let schemaPromise = null;
+
   return {
     _lockoutWindowMs: 15 * 60 * 1000,
+
+    // Applied once per process and awaited before the store serves traffic. On failure the
+    // memo is cleared so the next request retries: a database that was temporarily
+    // unreachable (a paused Supabase project, a cold start during a restart) then recovers
+    // on its own instead of poisoning the instance until the next deploy.
+    async init() {
+      if (!schemaPromise) {
+        schemaPromise = (async () => {
+          if (!directUrl) return ensureSchema(pool);
+          // DDL through a transaction-mode pooler (Supabase port 6543) is unreliable, so
+          // use the direct connection when the provider exposes one and release it again
+          // straight away — it is needed for exactly one statement batch per process.
+          const ddlPool = makePool({
+            connectionString: normalizeUrl(directUrl),
+            ssl: sslFor(directUrl),
+            max: 1,
+            connectionTimeoutMillis: 10000,
+          });
+          try {
+            await ensureSchema(ddlPool);
+          } finally {
+            await ddlPool.end().catch(() => {});
+          }
+        })().catch((err) => {
+          schemaPromise = null;
+          throw err;
+        });
+      }
+      return schemaPromise;
+    },
+
+    async close() {
+      await pool.end();
+    },
 
     async addParticipant({ username, passwordHash, competitionId = "prelim" }) {
       const res = await pool.query(
@@ -122,10 +218,52 @@ export function createPgStore(connectionString) {
       };
     },
 
+    async getAdminById(id) {
+      const res = await pool.query(`SELECT * FROM admins WHERE id = $1`, [id]);
+      if (res.rows.length === 0) return null;
+      const r = res.rows[0];
+      return {
+        id: Number(r.id),
+        username: r.username,
+        password_hash: r.password_hash,
+        role: r.role,
+        active_session_id: r.active_session_id,
+      };
+    },
+
+    // Mirrors store.updateAdmin. The unique constraint on admins.username is the real
+    // guard against a duplicate under a race; the route maps pg code 23505 to a 409.
+    async updateAdmin(id, { username, passwordHash } = {}) {
+      const sets = [];
+      const params = [id];
+      if (username !== undefined) sets.push(`username = $${params.push(username)}`);
+      if (passwordHash !== undefined) sets.push(`password_hash = $${params.push(passwordHash)}`);
+      if (!sets.length) return this.getAdminById(id);
+      const res = await pool.query(
+        `UPDATE admins SET ${sets.join(", ")} WHERE id = $1 RETURNING id, username, password_hash, role, active_session_id`,
+        params
+      );
+      if (res.rows.length === 0) return null;
+      const r = res.rows[0];
+      return {
+        id: Number(r.id),
+        username: r.username,
+        password_hash: r.password_hash,
+        role: r.role,
+        active_session_id: r.active_session_id,
+      };
+    },
+
     async bumpParticipantFailure(id, nowMs = Date.now()) {
       await pool.query(
-        `UPDATE participants SET failed_logins = failed_logins + 1, failed_login_at = to_timestamp($2 / 1000.0) WHERE id = $1`,
-        [id, nowMs]
+        `UPDATE participants
+         SET failed_logins = CASE
+           WHEN failed_login_at IS NOT NULL AND ($2 - EXTRACT(EPOCH FROM failed_login_at) * 1000) > $3 THEN 1
+           ELSE failed_logins + 1
+         END,
+         failed_login_at = to_timestamp($2 / 1000.0)
+         WHERE id = $1`,
+        [id, nowMs, this._lockoutWindowMs]
       );
     },
 
@@ -163,7 +301,7 @@ export function createPgStore(connectionString) {
     },
 
     async issueSession(participantId) {
-      const sid = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+      const sid = newSessionId();
       const res = await pool.query(
         `UPDATE participants SET active_session_id = $2 WHERE id = $1 RETURNING active_session_id`,
         [participantId, sid]
@@ -187,7 +325,7 @@ export function createPgStore(connectionString) {
     },
 
     async issueAdminSession(adminId) {
-      const sid = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+      const sid = newSessionId();
       const res = await pool.query(
         `UPDATE admins SET active_session_id = $2 WHERE id = $1 RETURNING active_session_id`,
         [adminId, sid]
@@ -221,7 +359,7 @@ export function createPgStore(connectionString) {
       const res = await pool.query(
         `INSERT INTO violations (participant_id, type, detail, count)
          VALUES ($1, $2, $3, 1)
-         ON CONFLICT (participant_id, type) WHERE type IN ('tab_blur', 'rate_flood')
+         ON CONFLICT (participant_id, type) WHERE type IN ('tab_blur', 'copy_paste', 'fullscreen_exit', 'rate_flood')
          DO UPDATE SET count = violations.count + 1, detail = COALESCE($3, violations.detail)
          RETURNING count`,
         [participantId, type, detail]
@@ -270,7 +408,7 @@ export function createPgStore(connectionString) {
     async startExam(participantId, nowMs = Date.now()) {
       const existing = await this.getExamSession(participantId);
       if (existing) return existing;
-      const seed = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+      const seed = randomBytes(16).toString("hex");
       const res = await pool.query(
         `INSERT INTO exam_sessions (participant_id, status, exam_started_at, shuffle_seed)
          VALUES ($1, 'IN_PROGRESS', to_timestamp($2 / 1000.0), $3)

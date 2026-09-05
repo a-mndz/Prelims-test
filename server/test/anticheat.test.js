@@ -16,6 +16,17 @@ import { config } from "../src/config.js";
 // --- request/response doubles (same shape as submit.test.js) ---
 function mockReq({ method = "GET", url = "/", headers = {}, body } = {}) {
   const listeners = {};
+  let emitted = false;
+  let flushed = false;
+  // Real http.IncomingMessage buffers the body until a consumer attaches. The router
+  // awaits auth (async store) before readJsonBody, so emitting eagerly dropped the body
+  // and the request hung forever. Deliver it whenever the listeners actually show up.
+  const flush = () => {
+    if (!emitted || flushed || !listeners.end) return;
+    flushed = true;
+    if (body !== undefined) listeners.data?.(Buffer.from(JSON.stringify(body)));
+    listeners.end();
+  };
   const req = {
     method,
     url,
@@ -23,12 +34,14 @@ function mockReq({ method = "GET", url = "/", headers = {}, body } = {}) {
     socket: { remoteAddress: headers["x-ip"] || "127.0.0.1" },
     on(ev, fn) {
       listeners[ev] = fn;
+      flush();
       return req;
     },
     destroy() {},
+    pause() {},
     _emit() {
-      if (body !== undefined) listeners.data?.(Buffer.from(JSON.stringify(body)));
-      listeners.end?.();
+      emitted = true;
+      flush();
     },
   };
   return req;
@@ -72,8 +85,8 @@ async function call(app, opts) {
 function cookieFrom(res) {
   return res.headers["set-cookie"].split(";")[0].split("=").slice(1).join("=");
 }
-function freshApp() {
-  const store = seedStore(createStore());
+async function freshApp() {
+  const store = await seedStore(createStore());
   return createApp(store, createRateLimiter());
 }
 async function loginParticipant(app, headers = {}) {
@@ -98,7 +111,7 @@ const cutoffMs = (config.examDurationSec + config.graceSec) * 1000;
 
 // --- tab_blur is persisted SERVER-SIDE, not trusted from the client (plan §5) ------
 test("tab_blur event is logged server-side under an in-progress exam", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   const res = await call(app, {
@@ -116,7 +129,7 @@ test("tab_blur event is logged server-side under an in-progress exam", async () 
 
 // --- write gauntlet: an event needs an in-progress, non-expired exam (RULES #5) ----
 test("event before start is 409; event past expiry is 403", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   // Before start → no session row → 409 (requireInProgress).
   const early = await call(app, {
@@ -141,7 +154,7 @@ test("event before start is 409; event past expiry is 403", async () => {
 
 // --- unknown event types are rejected at the trust boundary (RULES #1) -------------
 test("unknown event type is 400, never logged", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   const res = await call(app, {
@@ -155,8 +168,16 @@ test("unknown event type is 400, never logged", async () => {
 });
 
 // --- event flood is COALESCED: row count stops growing, flood stays visible (§2.3) --
-test("flooding /api/exam/event past the cap coalesces instead of inserting rows", async () => {
-  const app = freshApp();
+test("flooding /api/exam/event past the cap coalesces instead of inserting rows", async (t) => {
+  const app = await freshApp();
+  // The default consequence (auto_submit) ends the exam at blurThreshold, so every event
+  // past it gets 403 and the endpoint's own cap is never reached. Pin a non-terminal
+  // policy so this test exercises what it is about: coalescing at the cap.
+  const savedConsequence = config.antiCheat.consequence;
+  config.antiCheat.consequence = "flag_for_review";
+  t.after(() => {
+    config.antiCheat.consequence = savedConsequence;
+  });
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   // Fire well past the event cap. Under the cap each blur coalesces into ONE tab_blur row;
@@ -180,7 +201,7 @@ test("flooding /api/exam/event past the cap coalesces instead of inserting rows"
 
 // --- threshold consequence: never on the first blur; fires at the threshold (§5) ---
 test("consequence does not fire before the threshold and does fire at it", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   const thr = config.antiCheat.blurThreshold;
@@ -209,7 +230,7 @@ test("consequence does not fire before the threshold and does fire at it", async
 // The policy is "N violations total", not "N of each" — otherwise a participant gets
 // (threshold-1) free passes per type. Each type still keeps its own admin-log row.
 test("copy_paste and fullscreen_exit count toward the same threshold as tab_blur", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   const types = ["tab_blur", "copy_paste", "fullscreen_exit"];
@@ -234,7 +255,7 @@ test("copy_paste and fullscreen_exit count toward the same threshold as tab_blur
 
 // --- auto_submit consequence routes through the SAME atomic submit (§4.3) ----------
 test("auto_submit consequence submits exactly once via casSubmit", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   const saved = config.antiCheat.consequence;
@@ -262,7 +283,7 @@ test("auto_submit consequence submits exactly once via casSubmit", async () => {
 // aborted client makes after the threshold event 401s (session_superseded) — not just
 // blocked writes on a SUBMITTED exam. A re-login can only land on the locked screen.
 test("auto_submit threshold revokes the session: next request is 401", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   const saved = config.antiCheat.consequence;
@@ -288,7 +309,7 @@ test("auto_submit threshold revokes the session: next request is 401", async () 
 
 // --- admin leaderboard: score + malpractice flag, admin-only (plan §6) ---------------
 test("leaderboard: participant 403; admin sees score and malpractice flag", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie: pCookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie: pCookie } });
   await call(app, {
@@ -323,7 +344,7 @@ test("leaderboard: participant 403; admin sees score and malpractice flag", asyn
 });
 
 test("leaderboard: clean not-started participant shows no score, no malpractice", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie: aCookie } = await loginAdmin(app);
   const res = await call(app, {
     method: "GET",
@@ -340,7 +361,7 @@ test("leaderboard: clean not-started participant shows no score, no malpractice"
 
 // --- desktop-only: mobile UA is blocked at the START transition only (plan §5.1) ---
 test("mobile UA is blocked at exam start with a clear message", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const mobileUA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile/15E148";
   const { cookie } = await loginParticipant(app);
   const res = await call(app, {
@@ -354,7 +375,7 @@ test("mobile UA is blocked at exam start with a clear message", async () => {
 });
 
 test("desktop UA starts normally", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const desktopUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120";
   const { cookie } = await loginParticipant(app);
   const res = await call(app, {
@@ -368,7 +389,7 @@ test("desktop UA starts normally", async () => {
 
 // --- admin violation log is admin-only (plan §5 review scope) ----------------------
 test("violations endpoint: participant 403, admin sees the log", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie: pCookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie: pCookie } });
   await call(app, {
@@ -400,7 +421,7 @@ test("violations endpoint: participant 403, admin sees the log", async () => {
 
 // --- static deterrent assets are served (public/), traversal is refused ------------
 test("deterrent assets serve; path traversal is refused", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const js = await call(app, { method: "GET", url: "/anticheat.js" });
   assert.equal(js.statusCode, 200);
   assert.match(js.headers["content-type"], /javascript/);

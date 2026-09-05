@@ -16,6 +16,17 @@ import { config } from "../src/config.js";
 // --- request/response doubles (same shape as auth.test.js) ---
 function mockReq({ method = "GET", url = "/", headers = {}, body } = {}) {
   const listeners = {};
+  let emitted = false;
+  let flushed = false;
+  // Real http.IncomingMessage buffers the body until a consumer attaches. The router
+  // awaits auth (async store) before readJsonBody, so emitting eagerly dropped the body
+  // and the request hung forever. Deliver it whenever the listeners actually show up.
+  const flush = () => {
+    if (!emitted || flushed || !listeners.end) return;
+    flushed = true;
+    if (body !== undefined) listeners.data?.(Buffer.from(JSON.stringify(body)));
+    listeners.end();
+  };
   const req = {
     method,
     url,
@@ -23,12 +34,14 @@ function mockReq({ method = "GET", url = "/", headers = {}, body } = {}) {
     socket: { remoteAddress: headers["x-ip"] || "127.0.0.1" },
     on(ev, fn) {
       listeners[ev] = fn;
+      flush();
       return req;
     },
     destroy() {},
+    pause() {},
     _emit() {
-      if (body !== undefined) listeners.data?.(Buffer.from(JSON.stringify(body)));
-      listeners.end?.();
+      emitted = true;
+      flush();
     },
   };
   return req;
@@ -72,8 +85,8 @@ async function call(app, opts) {
 function cookieFrom(res) {
   return res.headers["set-cookie"].split(";")[0].split("=").slice(1).join("=");
 }
-function freshApp() {
-  const store = seedStore(createStore());
+async function freshApp() {
+  const store = await seedStore(createStore());
   return createApp(store, createRateLimiter());
 }
 async function loginParticipant(app) {
@@ -121,7 +134,7 @@ test("grading matches on option_id, unaffected by shuffled position (plan §3.1,
 
 // --- payload inspection: correct_option_id absent from 100% of responses (RULES #2, §6) ---
 test("participant question payload never contains correct_option_id (RULES #2)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   const res = await call(app, { method: "GET", url: "/api/exam/questions", headers: { cookie } });
@@ -136,7 +149,7 @@ test("participant question payload never contains correct_option_id (RULES #2)",
 
 // --- state machine: illegal transitions rejected (plan §4) ---
 test("questions/answer/review before start return 409 exam_not_started (plan §4)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   for (const [method, url, body] of [
     ["GET", "/api/exam/questions"],
@@ -153,7 +166,7 @@ test("questions/answer/review before start return 409 exam_not_started (plan §4
 // SUBMITTED, double-submit"). Writes are refused and a repeat submit is idempotent, never
 // a second grading run. The before-start case above covers NOT_STARTED; this covers after.
 test("PATCH after SUBMITTED and double-submit are rejected (plan §4, §7)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   const first = await call(app, { method: "POST", url: "/api/exam/submit", headers: { cookie } });
@@ -185,7 +198,7 @@ test("PATCH after SUBMITTED and double-submit are rejected (plan §4, §7)", asy
 });
 
 test("start is idempotent: same seed/clock on re-start (plan §3.1 refresh-stability)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   const first = await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   const second = await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
@@ -197,7 +210,7 @@ test("start is idempotent: same seed/clock on re-start (plan §3.1 refresh-stabi
 
 // --- autosave upsert + validation at the trust boundary (plan §4.2, RULES #1) ---
 test("answer rejects unknown question and option not on the question (RULES #1)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   const bad = await call(app, {
@@ -219,7 +232,7 @@ test("answer rejects unknown question and option not on the question (RULES #1)"
 });
 
 test("autosave upsert collapses re-clicks; review counts are server-computed (plan §4, §4.2)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   // Answer c-01 three times (indecisive), flag py-01 — should be 1 answered + 1 flagged.
@@ -250,7 +263,7 @@ test("autosave upsert collapses re-clicks; review counts are server-computed (pl
 
 // --- answered + flagged are orthogonal: flagging must not drop the answer (audit fix) ---
 test("answering then flagging a question keeps it answered AND flagged (plan §4)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   // Answer c-01, then flag it to revisit — the two are independent.

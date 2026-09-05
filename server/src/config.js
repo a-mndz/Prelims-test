@@ -1,17 +1,45 @@
 // Config — all secrets/tunables from env (RULES #7). No hardcoded secrets.
 // competition-system-plan-v2.md §2, §2.3, §4.1
+//
+// NOTE: this module validates the environment in its module body, so importing it can
+// throw. Entry points must therefore import it (or anything that imports it) lazily,
+// inside a try/catch — see api/index.js. A static import that throws on Vercel is reported
+// as FUNCTION_INVOCATION_FAILED, which names neither the missing variable nor the fix.
+import { ConfigError } from "./errors.js";
 
 const env = process.env;
 const isProd = env.NODE_ENV === "production";
 
-function required(name) {
-  const v = env[name];
-  if (!v) {
-    if (isProd && !env.VERCEL) throw new Error(`Missing required env var ${name} (RULES #7)`);
-    // Fallback secret for dev/demo deployments when JWT_SECRET is not explicitly set in Vercel UI
-    return `dev-only-insecure-${name}`;
+// A deployed environment must never run on placeholder secrets. Vercel sets
+// NODE_ENV=production for every deployment, so `isProd` alone already covers it;
+// VERCEL_ENV is kept as an explicit second signal for clarity.
+const requiresRealSecrets = isProd || env.VERCEL_ENV === "production";
+
+function required(name, fallbackName = null) {
+  const v = env[name] || (fallbackName ? env[fallbackName] : undefined);
+  if (v) return v;
+  if (requiresRealSecrets) {
+    // Previously this returned `dev-only-insecure-JWT_SECRET` on Vercel, which meant the
+    // live deployment signed session cookies with a constant published in this repo —
+    // anyone could mint an admin JWT. Refusing to boot is the only safe answer.
+    throw new ConfigError(
+      `Missing required env var ${name} (RULES #7). Set it in the Vercel project ` +
+        `(Settings -> Environment Variables) or the server .env, then redeploy.`,
+      "env_not_configured"
+    );
   }
-  return v;
+  return `dev-only-insecure-${name}`;
+}
+
+// Connection strings, in precedence order. The Vercel Supabase integration injects
+// POSTGRES_URL (pooled, pgbouncer) and POSTGRES_URL_NON_POOLING (direct); a
+// self-managed Postgres is passed as DATABASE_URL. DDL prefers the direct URL
+// because pgbouncer's transaction pooling is a poor fit for schema changes.
+export function resolveDbUrls(source = env) {
+  const pooled =
+    source.DATABASE_URL || source.POSTGRES_URL || source.POSTGRES_URL_NON_POOLING || null;
+  const direct = source.POSTGRES_URL_NON_POOLING || null;
+  return { pooled, direct: direct && direct !== pooled ? direct : null };
 }
 
 function int(name, def) {
@@ -21,7 +49,9 @@ function int(name, def) {
   // isExpired always false (exam never times out) and a NaN rate limit 429s everything.
   // A one-char typo in prod env must not silently un-time the exam (plan §4.1).
   const n = Number.parseInt(v, 10);
-  if (!Number.isFinite(n)) throw new Error(`Env var ${name}=${v} is not a valid integer`);
+  if (!Number.isFinite(n)) {
+    throw new ConfigError(`Env var ${name}=${v} is not a valid integer`, "env_not_configured");
+  }
   return n;
 }
 
@@ -30,10 +60,12 @@ export const config = {
   port: int("PORT", 3000),
 
   // Database Connection URL (supports DATABASE_URL or Vercel Supabase POSTGRES_URL)
-  dbUrl: env.DATABASE_URL || env.POSTGRES_URL || env.POSTGRES_URL_NON_POOLING || null,
+  dbUrl: resolveDbUrls().pooled,
+  // Direct (non-pooled) URL, used only for the one-time schema bootstrap.
+  dbUrlDirect: resolveDbUrls().direct,
 
   // Secrets (RULES #7 — different per environment)
-  jwtSecret: required("JWT_SECRET"),
+  jwtSecret: required("JWT_SECRET", "SUPABASE_JWT_SECRET"),
 
   // Cookie posture (plan §2.1) — httpOnly + Secure + SameSite=Strict is mandatory.
   // Secure defaults on; only a non-prod override can turn it off (local http dev).
@@ -82,7 +114,7 @@ export const config = {
   // produce false positives (plan §5: "do not auto-submit on the first blur event").
   // Admin-configurable via env; the default consequence is the least destructive one.
   antiCheat: {
-    blurThreshold: int("BLUR_THRESHOLD", 3),
+    blurThreshold: int("BLUR_THRESHOLD", 1),
     // "flag_for_review" | "warn" | "auto_submit" — flag is a signal for human judgment,
     // never an automatic disqualification (plan §5: consequence is a policy choice).
     consequence: env.BLUR_CONSEQUENCE || "auto_submit",

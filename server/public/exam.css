@@ -496,6 +496,13 @@ p {
   color: var(--danger);
 }
 
+/* Success twin of .alert-danger: the credential panel reports its outcome in the same
+   role="alert" region, so the change is announced instead of only appearing in the header. */
+.alert-success {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
 .start-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.72fr);
@@ -970,6 +977,12 @@ p {
   margin-bottom: 1rem;
   color: var(--ink-muted);
   font-size: 0.9rem;
+}
+
+/* Optional-field marker inside a <label>: reads as secondary next to the field name. */
+.field-hint {
+  color: var(--ink-muted);
+  font-weight: 400;
 }
 
 /* Rank and score read as data: monospace + tabular figures keep columns aligned. */

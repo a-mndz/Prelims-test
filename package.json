@@ -5,6 +5,10 @@
   "engines": {
     "node": ">=22"
   },
+  "scripts": {
+    "start": "npm start --prefix server",
+    "test": "npm test --prefix server"
+  },
   "dependencies": {
     "pg": "^8.23.0"
   }

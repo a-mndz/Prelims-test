@@ -58,8 +58,8 @@ for (let i = 0; i < N; i++) {
 const t0 = Date.now();
 const outcomes = await Promise.all(
   ids.flatMap((pid) => {
-    const a = Promise.resolve().then(() => { const r = res(); exam.submit({}, r, { sub: pid }); return r; });
-    const b = Promise.resolve().then(() => { const r = res(); exam.submit({}, r, { sub: pid }); return r; });
+    const a = Promise.resolve().then(async () => { const r = res(); await exam.submit({}, r, { sub: pid }); return r; });
+    const b = Promise.resolve().then(async () => { const r = res(); await exam.submit({}, r, { sub: pid }); return r; });
     return [a, b];
   }),
 );

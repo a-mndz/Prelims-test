@@ -2,9 +2,18 @@
 -- competition-system-plan-v2.md §2, §2.2, §4; ARCHITECTURE.md "Data model".
 -- Postgres chosen for atomic conditional UPDATE + row-count verdict (plan §4.3),
 -- replication/PITR (plan §8). Never SQLite on the app box (plan §8).
+--
+-- THIS FILE IS EXECUTED AT RUNTIME by pgStore.ensureSchema() on the first
+-- connection of each process, so every statement MUST be idempotent (IF NOT
+-- EXISTS, or a DO block that swallows duplicate_object). Without that bootstrap
+-- a fresh managed database (Supabase, RDS, Neon) answers the first INSERT with
+-- 42P01 "relation does not exist" and no participant can ever be saved.
+--
+-- Idempotent != a migration tool: CREATE TABLE IF NOT EXISTS leaves an existing
+-- table's columns untouched. Changing a column still needs a real migration.
 
 -- Two independent credential tables, not one with a client-decided role flag (plan §2).
-CREATE TABLE participants (
+CREATE TABLE IF NOT EXISTS participants (
   id                 BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   username           TEXT UNIQUE NOT NULL,
   password_hash      TEXT NOT NULL,          -- scrypt/bcrypt/argon2, never plaintext
@@ -16,7 +25,7 @@ CREATE TABLE participants (
                                                     -- known username can't be permanently DoS'd
 );
 
-CREATE TABLE admins (
+CREATE TABLE IF NOT EXISTS admins (
   id                 BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   username           TEXT UNIQUE NOT NULL,
   password_hash      TEXT NOT NULL,
@@ -33,7 +42,7 @@ CREATE TABLE admins (
 -- `count` lets a flood past the rate limit coalesce into one row (count++) instead of
 -- inserting a row per hostile request (plan §2.3: counted but coalesced). The coalescing
 -- upsert is an INSERT ... ON CONFLICT (participant_id, type) DO UPDATE SET count = count + 1.
-CREATE TABLE violations (
+CREATE TABLE IF NOT EXISTS violations (
   id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   participant_id  BIGINT NOT NULL REFERENCES participants(id),
   type            TEXT NOT NULL,   -- session_takeover | tab_blur | rate_flood
@@ -41,19 +50,43 @@ CREATE TABLE violations (
   count           INT NOT NULL DEFAULT 1,   -- coalesced flood counter (plan §2.3)
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX violations_participant_idx ON violations(participant_id);
+CREATE INDEX IF NOT EXISTS violations_participant_idx ON violations(participant_id);
 -- Coalesced types (tab_blur, rate_flood) get ONE row per (participant, type) that the
 -- ON CONFLICT upsert increments — so this PARTIAL unique index is the conflict target.
 -- It is partial on purpose: session_takeover stays APPEND-ONLY (one row per takeover,
 -- plan §2.2 "log every takeover"), so it must NOT be covered by a unique constraint.
-CREATE UNIQUE INDEX violations_coalesced_uniq
+-- The predicate must match pgStore.coalesceViolation's ON CONFLICT ... WHERE verbatim,
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE indexname = 'violations_coalesced_uniq'
+      AND indexdef NOT LIKE '%copy_paste%'
+  ) THEN
+    DROP INDEX IF EXISTS violations_coalesced_uniq;
+  END IF;
+
+  WITH ranked AS (
+    SELECT id, ROW_NUMBER() OVER (
+      PARTITION BY participant_id, type
+      ORDER BY id DESC
+    ) as rn
+    FROM violations
+    WHERE type IN ('tab_blur', 'copy_paste', 'fullscreen_exit', 'rate_flood')
+  )
+  DELETE FROM violations WHERE id IN (SELECT id FROM ranked WHERE rn > 1);
+END $$;
+CREATE UNIQUE INDEX IF NOT EXISTS violations_coalesced_uniq
   ON violations (participant_id, type)
-  WHERE type IN ('tab_blur', 'rate_flood');
+  WHERE type IN ('tab_blur', 'copy_paste', 'fullscreen_exit', 'rate_flood');
 
 -- Exam state on its own table, not the participant row: the sweep (plan §4.1) and
 -- the atomic submit (plan §4.3) both race over this row's status (plan §4).
-CREATE TYPE exam_status AS ENUM ('IN_PROGRESS', 'SUBMITTED', 'LOCKED');
-CREATE TABLE exam_sessions (
+-- CREATE TYPE has no IF NOT EXISTS, so the DO block is the idempotent form.
+DO $$ BEGIN
+  CREATE TYPE exam_status AS ENUM ('IN_PROGRESS', 'SUBMITTED', 'LOCKED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+CREATE TABLE IF NOT EXISTS exam_sessions (
   participant_id   BIGINT PRIMARY KEY REFERENCES participants(id),  -- unique => one exam/participant
   status           exam_status NOT NULL DEFAULT 'IN_PROGRESS',
   exam_started_at  TIMESTAMPTZ NOT NULL DEFAULT now(),              -- server clock (plan §4.1)
@@ -65,7 +98,7 @@ CREATE TABLE exam_sessions (
 
 -- Graded outcome, one row per participant, written exactly once by the single winning
 -- casSubmit transition (plan §4.3). submitted_by mirrors exam_sessions for the audit trail.
-CREATE TABLE results (
+CREATE TABLE IF NOT EXISTS results (
   participant_id  BIGINT PRIMARY KEY REFERENCES participants(id),
   correct         INT NOT NULL,
   total           INT NOT NULL,
@@ -79,7 +112,7 @@ CREATE TABLE results (
 -- flag it to revisit — flagging must never drop a selected answer from grading. option_id is
 -- '' when the row is flag-only (flagged before any option was picked). Grading counts any row
 -- with answered=TRUE, regardless of flag.
-CREATE TABLE responses (
+CREATE TABLE IF NOT EXISTS responses (
   participant_id  BIGINT NOT NULL REFERENCES participants(id),
   question_id     TEXT NOT NULL,
   option_id       TEXT NOT NULL DEFAULT '',

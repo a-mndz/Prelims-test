@@ -33,6 +33,9 @@
       const error = new Error(payload.message || payload.error || `HTTP ${response.status}`);
       error.code = payload.error;
       error.status = response.status;
+      if ((error.code === "session_superseded" || error.status === 401) && state.examState === "IN_PROGRESS") {
+        showSubmittedView("violation");
+      }
       throw error;
     }
     return payload;
@@ -204,7 +207,7 @@
       showView("view-exam");
       return;
     }
-    showSubmittedView();
+    showSubmittedView(status.submittedBy === "blur_threshold" ? "violation" : undefined);
   }
 
   async function startExam() {
@@ -465,7 +468,7 @@
   }
 
   const SUBMITTED_NOTES = {
-    violation: "Your exam was submitted by the server after repeated rule violations were recorded (leaving the exam window, exiting fullscreen, or using copy/paste). If you believe this was in error, contact the administrator.",
+    violation: "Your exam was submitted by the server after a rule violation was recorded (leaving the exam window, opening another tab, exiting fullscreen, or attempting malpractice). If you believe this was in error, contact the administrator.",
     timeout: "Time expired. All answers saved during the exam were submitted automatically.",
     expired: "Your exam time ended. Answers saved during the session are recorded and will be graded.",
   };
@@ -495,6 +498,7 @@
     // Sequential: violations table resolves usernames from the leaderboard cache.
     await loadLeaderboard();
     await loadViolations();
+    await loadAdminCreds();
   }
 
   function appendCell(row, value, className) {
@@ -643,6 +647,68 @@
     }
   }
 
+  const ADMIN_CREDS_ERRORS = {
+    invalid_credentials: "Current password is incorrect.",
+    duplicate_username: "That username is already taken.",
+    weak_password: "New password must be at least 8 characters.",
+    nothing_to_update: "Nothing to change: enter a different username or a new password.",
+    rate_limited: "Too many attempts. Wait a minute and try again.",
+  };
+
+  // One alert region, two outcomes: swap the colour class so a success is not styled
+  // (or read) as an error.
+  function showAdminCredsResult(message, isError) {
+    const alert = document.getElementById("admin-creds-alert");
+    alert.classList.toggle("alert-danger", isError);
+    alert.classList.toggle("alert-success", !isError);
+    showAlert("admin-creds-alert", message);
+  }
+
+  // Prefill the username field with the current one so the admin can see what they are
+  // editing. Non-fatal if it fails — the form still works without the prefill.
+  async function loadAdminCreds() {
+    try {
+      const me = await apiFetch("/api/admin/credentials");
+      document.getElementById("admin-creds-username").value = me.username;
+    } catch (error) {
+      // ignore
+    }
+  }
+
+  // Admin self-service credential change. The server re-verifies the current password and
+  // owns every rule; this only shapes the request and reports the outcome.
+  async function handleAdminCreds(event) {
+    event.preventDefault();
+    const button = document.getElementById("admin-creds-button");
+    const currentPassword = document.getElementById("admin-creds-current").value;
+    const username = document.getElementById("admin-creds-username").value.trim();
+    const newPassword = document.getElementById("admin-creds-new").value;
+    if (!currentPassword) {
+      showAdminCredsResult("Enter your current password.", true);
+      return;
+    }
+    if (!username && !newPassword) {
+      showAdminCredsResult("Enter a new username, a new password, or both.", true);
+      return;
+    }
+    showAlert("admin-creds-alert", null);
+    setButtonBusy(button, true, "Updating...");
+    try {
+      const result = await apiFetch("/api/admin/credentials", {
+        method: "PATCH",
+        body: { currentPassword, username, newPassword },
+      });
+      document.getElementById("admin-creds-form").reset();
+      document.getElementById("admin-creds-username").value = result.username;
+      // Reported in the panel's own role="alert" region so it is announced, not just seen.
+      showAdminCredsResult(`Credentials updated. Sign in as "${result.username}" from now on.`, false);
+    } catch (error) {
+      showAdminCredsResult(ADMIN_CREDS_ERRORS[error.code] || error.message, true);
+    } finally {
+      setButtonBusy(button, false);
+    }
+  }
+
   async function loadViolations() {
     const button = document.getElementById("refresh-violations");
     setButtonBusy(button, true, "Refreshing...");
@@ -703,8 +769,14 @@
     retryFailedSaves();
     try {
       const status = await apiFetch("/api/exam/status");
-      if (status.status !== "IN_PROGRESS") showSubmittedView();
-    } catch (_) {}
+      if (status.status !== "IN_PROGRESS") {
+        showSubmittedView(status.submittedBy === "blur_threshold" ? "violation" : undefined);
+      }
+    } catch (error) {
+      if (error.code === "session_superseded" || error.status === 401) {
+        showSubmittedView("violation");
+      }
+    }
   }
 
   function retryFailedSaves() {
@@ -747,6 +819,7 @@
   });
   document.getElementById("leaderboard-sort").addEventListener("change", renderLeaderboard);
   document.getElementById("create-user-form").addEventListener("submit", handleCreateUser);
+  document.getElementById("admin-creds-form").addEventListener("submit", handleAdminCreds);
   document.getElementById("add-user-row").addEventListener("click", addCreateUserRow);
   resetCreateUserRows();
   document.addEventListener("exam:visibility-return", reconcileStatus);

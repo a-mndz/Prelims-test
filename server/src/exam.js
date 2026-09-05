@@ -167,6 +167,7 @@ export function createExam(store, bank, timing, rl = null) {
         durationSec: timing.examDurationSec,
         graceSec: timing.graceSec,
         submittedAt: s.submitted_at,
+        submittedBy: s.submitted_by,
         total: bank.size,
         serverNow: Date.now(),
       });

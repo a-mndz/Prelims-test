@@ -73,6 +73,24 @@ export function createStore() {
     getAdminByUsername(username) {
       return admins.get(username) || null;
     },
+    getAdminById(id) {
+      return adminsById.get(id) || null;
+    },
+    // Admin self-service credential change (admin portal). Rekeys the `admins` username map
+    // but keeps the SAME row object in adminsById, so the sid session checks — which key by
+    // the token's `sub` (admin id) — keep working across a username change.
+    updateAdmin(id, { username, passwordHash } = {}) {
+      const a = adminsById.get(id);
+      if (!a) return null;
+      if (username !== undefined && username !== a.username) {
+        if (admins.has(username)) throw new Error("duplicate_admin_username");
+        admins.delete(a.username);
+        a.username = username;
+        admins.set(username, a);
+      }
+      if (passwordHash !== undefined) a.password_hash = passwordHash;
+      return a;
+    },
 
     // --- login failure accounting (plan §2.3 lockout) ---
     // The lockout counter DECAYS: if the last failure is older than windowMs the account is

@@ -36,10 +36,7 @@
     }
   }
 
-  // --- clipboard: blocked AND reported (deterrent + signal) ---------------------
-  // preventDefault is the deterrent (a determined user disables JS); the copy_paste
-  // beacon is the signal the server thresholds. contextmenu is swallow-only — a
-  // right-click is not clipboard use.
+  // --- clipboard & context menu: blocked AND reported (deterrent + signal) -------
   for (const evt of ["copy", "cut", "paste"]) {
     document.addEventListener(evt, (e) => {
       if (!examIsActive()) return;
@@ -48,28 +45,48 @@
     });
   }
   document.addEventListener("contextmenu", (e) => {
-    if (examIsActive()) e.preventDefault();
+    if (!examIsActive()) return;
+    e.preventDefault();
+    reportEvent("copy_paste");
   });
 
-  // Best-effort block of common DevTools shortcuts. F12 and Ctrl+Shift+I/J/C.
-  // Deterrent only — the browser menu still opens DevTools, and this is trivially
-  // bypassed. Included because it raises friction and is in spec, not because it works.
+  // --- DevTools shortcuts & navigation malpractice: blocked AND reported --------
+  // F12, Ctrl+Shift+I/J/C/K/P, Ctrl+U (source), Ctrl+S (save), Ctrl+P (print), Ctrl+T/N (new tab/window)
   document.addEventListener("keydown", (e) => {
+    if (!examIsActive()) return;
     const k = e.key.toUpperCase();
-    if (examIsActive() && (e.key === "F12" || (e.ctrlKey && e.shiftKey && (k === "I" || k === "J" || k === "C")))) {
+    const isMalpractice =
+      e.key === "F12" ||
+      (e.ctrlKey && e.shiftKey && (k === "I" || k === "J" || k === "C" || k === "K" || k === "P")) ||
+      (e.metaKey && e.altKey && (k === "I" || k === "J" || k === "C")) ||
+      (e.ctrlKey && (k === "U" || k === "S" || k === "P")) ||
+      ((e.ctrlKey || e.metaKey) && (k === "T" || k === "N"));
+
+    if (isMalpractice) {
       e.preventDefault();
+      reportEvent("tab_blur");
     }
   });
 
-  // --- visibility: fires on tab switch, window blur, minimize -------------------
+  // --- window blur & visibility: fires on tab switch, window blur, minimize -----
+  let lastBlurTime = 0;
   function reportBlur() {
-    if (!examIsActive() || document.visibilityState !== "hidden") return;
+    if (!examIsActive()) return;
+    const now = Date.now();
+    if (now - lastBlurTime < 500) return; // avoid duplicate beacon in the same blur/hidden transition
+    lastBlurTime = now;
     reportEvent("tab_blur");
   }
-  document.addEventListener("visibilitychange", reportBlur);
+  window.addEventListener("blur", reportBlur);
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") document.dispatchEvent(new Event("exam:visibility-return"));
+    if (document.visibilityState === "hidden") reportBlur();
   });
+
+  function handleReturn() {
+    if (document.visibilityState === "visible") document.dispatchEvent(new Event("exam:visibility-return"));
+  }
+  document.addEventListener("visibilitychange", handleReturn);
+  window.addEventListener("focus", handleReturn);
 
   // --- fullscreen: leaving it mid-exam is a violation (app.js requests it on
   // login/start — requestFullscreen needs a user gesture, so it lives there).

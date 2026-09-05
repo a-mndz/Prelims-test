@@ -16,6 +16,17 @@ import { config } from "../src/config.js";
 // --- request/response doubles (same shape as the other suites) ---
 function mockReq({ method = "GET", url = "/", headers = {}, body } = {}) {
   const listeners = {};
+  let emitted = false;
+  let flushed = false;
+  // Real http.IncomingMessage buffers the body until a consumer attaches. The router
+  // awaits auth (async store) before readJsonBody, so emitting eagerly dropped the body
+  // and the request hung forever. Deliver it whenever the listeners actually show up.
+  const flush = () => {
+    if (!emitted || flushed || !listeners.end) return;
+    flushed = true;
+    if (body !== undefined) listeners.data?.(Buffer.from(JSON.stringify(body)));
+    listeners.end();
+  };
   const req = {
     method,
     url,
@@ -23,12 +34,14 @@ function mockReq({ method = "GET", url = "/", headers = {}, body } = {}) {
     socket: { remoteAddress: headers["x-ip"] || "127.0.0.1" },
     on(ev, fn) {
       listeners[ev] = fn;
+      flush();
       return req;
     },
     destroy() {},
+    pause() {},
     _emit() {
-      if (body !== undefined) listeners.data?.(Buffer.from(JSON.stringify(body)));
-      listeners.end?.();
+      emitted = true;
+      flush();
     },
   };
   return req;
@@ -72,8 +85,8 @@ async function call(app, opts) {
 function cookieFrom(res) {
   return res.headers["set-cookie"].split(";")[0].split("=").slice(1).join("=");
 }
-function freshApp() {
-  const store = seedStore(createStore());
+async function freshApp() {
+  const store = await seedStore(createStore());
   return createApp(store, createRateLimiter());
 }
 async function loginParticipant(app) {
@@ -106,7 +119,7 @@ test("verifyPasswordAsync agrees with verifyPassword (#6 non-blocking login)", a
 
 // --- #2: lockout decays and is attacker-bounded, not permanent --------------------
 test("participant lockout decays after the window (#2 no permanent DoS)", async () => {
-  const store = seedStore(createStore());
+  const store = await seedStore(createStore());
   store._lockoutWindowMs = 1000;
   const id = store.getParticipantByUsername("participant1").id;
   for (let i = 0; i < config.loginLockoutThreshold; i++) store.bumpParticipantFailure(id);
@@ -117,7 +130,7 @@ test("participant lockout decays after the window (#2 no permanent DoS)", async 
 
 // --- FIX M2: admin tokens are revocable (sid mirrors the participant mechanism) ----
 test("admin logout/re-login revokes previously issued admin tokens (FIX M2)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie: first } = await loginAdmin(app);
   // Works before revocation.
   const ok = await call(app, { method: "GET", url: "/api/admin/violations", headers: { cookie: first } });
@@ -137,7 +150,7 @@ test("admin logout/re-login revokes previously issued admin tokens (FIX M2)", as
 
 // --- FIX M1: correct-password retries during lockout must not refresh the decay ----
 test("lockout decays even while the victim retries the correct password (FIX M1)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const store = app.store;
   store._lockoutWindowMs = 1000;
   const id = store.getParticipantByUsername("participant1").id;
@@ -170,7 +183,7 @@ test("lockout decays even while the victim retries the correct password (FIX M1)
 
 // --- #2: admin can unlock a locked-out participant --------------------------------
 test("admin unlock endpoint clears a participant lockout (#2 operator remedy)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const id = app.store.getParticipantByUsername("participant1").id;
   for (let i = 0; i < config.loginLockoutThreshold; i++) app.store.bumpParticipantFailure(id);
   // Even a correct password fails while locked.
@@ -224,7 +237,7 @@ test("clientIp trusts XFF only per configured hops (#3 proxy awareness)", () => 
 
 // --- #10: malformed cookie is a rejection, not a 500 -------------------------------
 test("malformed cookie does not 500 (#10)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const res = await call(app, {
     method: "GET",
     url: "/api/exam/questions",
@@ -236,7 +249,7 @@ test("malformed cookie does not 500 (#10)", async () => {
 
 // --- #11: GET / serves the participant shell --------------------------------------
 test("GET / serves the exam shell, not a 404 (#11)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const res = await call(app, { method: "GET", url: "/" });
   assert.equal(res.statusCode, 200);
   assert.match(res.headers["content-type"], /text\/html/);
@@ -246,7 +259,7 @@ test("GET / serves the exam shell, not a 404 (#11)", async () => {
 
 // --- #12: status endpoint works in terminal states (post-submit confirmation) ------
 test("exam status is readable before start and after submit (#12)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   const before = await call(app, { method: "GET", url: "/api/exam/status", headers: { cookie } });
   assert.equal(before.statusCode, 200);
@@ -265,7 +278,7 @@ test("exam status is readable before start and after submit (#12)", async () => 
 
 // --- #9: submit timestamp comes from the post-CAS row, never null -------------------
 test("submit returns a real timestamp from the transitioned row (#9)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginParticipant(app);
   await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie } });
   const res = await call(app, { method: "POST", url: "/api/exam/submit", headers: { cookie } });
@@ -276,7 +289,7 @@ test("submit returns a real timestamp from the transitioned row (#9)", async () 
 
 // --- #13: unmatched /api/admin/* is a 404, not a 200 -------------------------------
 test("unknown admin route is 404, not a 200 OK (#13)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginAdmin(app);
   const res = await call(app, { method: "GET", url: "/api/admin/nonexistent", headers: { cookie } });
   assert.equal(res.statusCode, 404);
@@ -284,7 +297,7 @@ test("unknown admin route is 404, not a 200 OK (#13)", async () => {
 
 // --- #8: takeover violation records ip + ua so admins can triage ------------------
 test("session_takeover detail carries ip and ua (#8 triage signal)", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const creds = { username: "participant1", password: "change-me-participant" };
   await call(app, { method: "POST", url: "/api/auth/participant/login", body: creds });
   await call(app, {
@@ -325,7 +338,7 @@ test("expiry cutoff is a finite number with real config (#5)", () => {
 
 // --- admin creates a participant with allocated credentials -----------------------
 test("admin create-participant endpoint provisions a working account", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   // Admin-only: unauthenticated (and by the same guard, participant) requests get 403.
   const forbidden = await call(app, {
     method: "POST",
@@ -365,7 +378,7 @@ test("admin create-participant endpoint provisions a working account", async () 
 });
 
 test("admin create-participant rejects duplicates and missing fields", async () => {
-  const app = freshApp();
+  const app = await freshApp();
   const { cookie } = await loginAdmin(app);
   const dup = await call(app, {
     method: "POST",

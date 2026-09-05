@@ -22,6 +22,10 @@ import {
   serveStatic,
 } from "./http.js";
 
+// Minimum length for an admin-chosen password (self-service change only; seeded values
+// are the operator's business). Short enough not to annoy, long enough to matter.
+const MIN_ADMIN_PASSWORD_LEN = 8;
+
 export function createApp(store = createStore(), rl = createRateLimiter(), bank = createQuestionBank()) {
   const exam = createExam(store, bank, config, rl);
   store._lockoutWindowMs = config.loginLockoutWindowSec * 1000;
@@ -37,8 +41,10 @@ export function createApp(store = createStore(), rl = createRateLimiter(), bank 
     if (typeof username !== "string" || typeof password !== "string") {
       return sendJson(res, 400, { error: "missing_credentials" });
     }
+    const name = username.trim();
+    if (!name) return sendJson(res, 400, { error: "missing_credentials" });
 
-    const p = await store.getParticipantByUsername(username);
+    const p = await store.getParticipantByUsername(name);
     const pwOk = await verifyPasswordAsync(password, p ? p.password_hash : DUMMY_PASSWORD_HASH);
     const lockedOut = p ? (await store.participantFailures(p.id)) >= config.loginLockoutThreshold : false;
     const ok = p && p.is_active && !lockedOut && pwOk;
@@ -74,8 +80,11 @@ export function createApp(store = createStore(), rl = createRateLimiter(), bank 
     if (typeof username !== "string" || typeof password !== "string") {
       return sendJson(res, 400, { error: "missing_credentials" });
     }
+    const name = username.trim();
+    if (!name) return sendJson(res, 400, { error: "missing_credentials" });
+
     const lockedOut = store.adminFailuresForIp(ip) >= config.loginLockoutThreshold;
-    const a = await store.getAdminByUsername(username);
+    const a = await store.getAdminByUsername(name);
     const pwOk = await verifyPasswordAsync(password, a ? a.password_hash : DUMMY_PASSWORD_HASH);
     if (lockedOut) {
       return sendJson(res, 401, { error: "invalid_credentials" });
@@ -211,6 +220,67 @@ export function createApp(store = createStore(), rl = createRateLimiter(), bank 
         if (!p) return sendJson(res, 404, { error: "no_participant" });
         return sendJson(res, 200, { status: "unlocked", participantId: p.id });
       }
+      if (method === "POST" && path === "/api/admin/unlock") {
+        const { value, error } = await readJsonBody(req);
+        if (error) return sendJson(res, 400, { error });
+        const { participant_id, participantId } = value || {};
+        const id = Number(participant_id ?? participantId);
+        if (!Number.isFinite(id) || id <= 0) return sendJson(res, 400, { error: "missing_participant_id" });
+        const p = await store.unlockParticipant(id);
+        if (!p) return sendJson(res, 404, { error: "no_participant" });
+        return sendJson(res, 200, { status: "unlocked", participantId: p.id });
+      }
+
+      // Admin self-service credentials (admin portal). Re-authenticates with the current
+      // password before applying any change: a stolen session cookie alone must not be
+      // enough to lock the real admin out by rotating the username/password.
+      if (method === "GET" && path === "/api/admin/credentials") {
+        const me = await store.getAdminById(claims.sub);
+        if (!me) return sendJson(res, 401, { error: "not_authenticated" });
+        return sendJson(res, 200, { username: me.username, min_password_length: MIN_ADMIN_PASSWORD_LEN });
+      }
+      if (method === "PATCH" && path === "/api/admin/credentials") {
+        const ip = clientIp(req);
+        // This endpoint verifies a password, so it is a brute-force surface like login.
+        if (!rl.check(`acreds:${ip}`, config.rateLimits.adminLogin).allowed) {
+          return sendJson(res, 429, { error: "rate_limited" });
+        }
+        const { value, error } = await readJsonBody(req);
+        if (error) return sendJson(res, 400, { error });
+        const { currentPassword, username, newPassword } = value || {};
+        const me = await store.getAdminById(claims.sub);
+        if (!me) return sendJson(res, 401, { error: "not_authenticated" });
+        const pwOk =
+          typeof currentPassword === "string" &&
+          (await verifyPasswordAsync(currentPassword, me.password_hash));
+        if (!pwOk) return sendJson(res, 401, { error: "invalid_credentials" });
+
+        const name = typeof username === "string" ? username.trim() : "";
+        const wantsName = !!name && name !== me.username;
+        const wantsPass = typeof newPassword === "string" && newPassword.length > 0;
+        if (!wantsName && !wantsPass) return sendJson(res, 400, { error: "nothing_to_update" });
+        if (wantsPass && newPassword.length < MIN_ADMIN_PASSWORD_LEN) {
+          return sendJson(res, 400, { error: "weak_password" });
+        }
+        if (wantsName && (await store.getAdminByUsername(name))) {
+          return sendJson(res, 409, { error: "duplicate_username" });
+        }
+        const patch = {};
+        if (wantsName) patch.username = name;
+        if (wantsPass) patch.passwordHash = hashPassword(newPassword);
+        let updated;
+        try {
+          updated = await store.updateAdmin(claims.sub, patch);
+        } catch (err) {
+          // Unique-violation race between the pre-check above and this write.
+          if (err?.code === "23505" || err?.message === "duplicate_admin_username") {
+            return sendJson(res, 409, { error: "duplicate_username" });
+          }
+          throw err;
+        }
+        if (!updated) return sendJson(res, 404, { error: "no_admin" });
+        return sendJson(res, 200, { status: "updated", username: updated.username });
+      }
       return sendJson(res, 404, { error: "not_found" });
     }
 
@@ -222,11 +292,11 @@ export function createApp(store = createStore(), rl = createRateLimiter(), bank 
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
-  let store = createStore();
-  if (!config.isProd) {
-    const { seedStore } = await import("./seed.js");
-    await seedStore(store);
-  }
+  // Same store selection as the serverless entry point. This used to be an unconditional
+  // createStore(), so `npm start` ignored DATABASE_URL entirely and every write was thrown
+  // away when the process exited, no matter how the environment was configured.
+  const { createConfiguredStore } = await import("./bootstrap.js");
+  const { store, mode } = await createConfiguredStore();
   const app = createApp(store);
   createServer((req, res) => {
     const startedAt = process.hrtime.bigint();
@@ -241,7 +311,9 @@ if (isMain) {
       if (!res.headersSent) sendJson(res, 500, { error: "internal" });
     });
   }).listen(config.port, () => {
-    console.log(`prelims auth server on :${config.port} (secure-cookie=${config.cookie.secure})`);
+    console.log(
+      `prelims auth server on :${config.port} (store=${mode}, secure-cookie=${config.cookie.secure})`,
+    );
   });
   const sweepMs = Number.parseInt(process.env.SWEEP_INTERVAL_MS || "20000", 10);
   setInterval(async () => {

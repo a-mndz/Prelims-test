@@ -2,27 +2,27 @@
   {
     "id": "c-01",
     "subject": "C",
-    "code_snippet": null,
-    "prompt": "Which header declares malloc and free?",
+    "code_snippet": "int a[] = {10, 20, 30, 40, 50};\n\nfor (int i = 0; i <= 5; i++)\n    printf(\"%d \", a[i]);",
+    "prompt": "What is the bug?",
     "options": [
-      { "id": "a", "text": "<stdio.h>" },
-      { "id": "b", "text": "<stdlib.h>" },
-      { "id": "c", "text": "<string.h>" },
-      { "id": "d", "text": "<memory.h>" }
+      { "id": "a", "text": "i must start at 1" },
+      { "id": "b", "text": "i <= 5 should be i < 5" },
+      { "id": "c", "text": "Array needs 6 elements" },
+      { "id": "d", "text": "No error" }
     ],
     "correct_option_id": "b",
-    "category": "knowledge"
+    "category": "debug"
   },
   {
     "id": "c-02",
     "subject": "C",
-    "code_snippet": "int a[3] = {1, 2, 3};\nprintf(\"%d\", a[3]);",
-    "prompt": "What best describes this program's behavior?",
+    "code_snippet": "char a[] = \"hello\";\nchar b[] = \"hello\";\n\nif (a == b)\n    printf(\"Same\");\nelse\n    printf(\"Different\");",
+    "prompt": "How should the strings be compared?",
     "options": [
-      { "id": "a", "text": "Prints 3" },
-      { "id": "b", "text": "Prints 0" },
-      { "id": "c", "text": "Undefined behavior (out-of-bounds read)" },
-      { "id": "d", "text": "Compile error" }
+      { "id": "a", "text": "a = b" },
+      { "id": "b", "text": "a == b" },
+      { "id": "c", "text": "strcmp(a, b) == 0" },
+      { "id": "d", "text": "*a == *b" }
     ],
     "correct_option_id": "c",
     "category": "debug"
@@ -30,251 +30,251 @@
   {
     "id": "c-03",
     "subject": "C",
-    "code_snippet": null,
-    "prompt": "What does sizeof(char) evaluate to?",
+    "code_snippet": "int x = 10;\nint *p;\n\n*p = x;\nprintf(\"%d\", *p);",
+    "prompt": "What is the problem?",
     "options": [
-      { "id": "a", "text": "1" },
-      { "id": "b", "text": "2" },
-      { "id": "c", "text": "4" },
-      { "id": "d", "text": "Implementation-defined" }
+      { "id": "a", "text": "x cannot be assigned" },
+      { "id": "b", "text": "p is uninitialized" },
+      { "id": "c", "text": "*p cannot be printed" },
+      { "id": "d", "text": "Pointer must be char *" }
     ],
-    "correct_option_id": "a",
-    "category": "knowledge"
+    "correct_option_id": "b",
+    "category": "debug"
   },
   {
     "id": "c-04",
     "subject": "C",
-    "code_snippet": "int x = 5;\nif (x = 0) {\n    printf(\"zero\");\n} else {\n    printf(\"nonzero\");\n}",
-    "prompt": "What is printed?",
+    "code_snippet": "int factorial(int n) {\n    return n * factorial(n - 1);\n}",
+    "prompt": "What is missing?",
     "options": [
-      { "id": "a", "text": "zero" },
-      { "id": "b", "text": "nonzero" },
-      { "id": "c", "text": "Compile error" },
-      { "id": "d", "text": "Undefined behavior" }
+      { "id": "a", "text": "Loop" },
+      { "id": "b", "text": "Pointer" },
+      { "id": "c", "text": "Base condition" },
+      { "id": "d", "text": "Array" }
     ],
-    "correct_option_id": "b",
+    "correct_option_id": "c",
     "category": "debug"
   },
   {
     "id": "c-05",
     "subject": "C",
-    "code_snippet": null,
-    "prompt": "Which printf format specifier prints an unsigned decimal integer?",
+    "code_snippet": "int a[] = {2, 4, 6, 8, 10};\n\nint n = sizeof(a) / sizeof(a[0]);\n\nprintf(\"%d\", n);",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "%d" },
-      { "id": "b", "text": "%i" },
-      { "id": "c", "text": "%u" },
-      { "id": "d", "text": "%x" }
+      { "id": "a", "text": "4" },
+      { "id": "b", "text": "5" },
+      { "id": "c", "text": "10" },
+      { "id": "d", "text": "Depends on compiler" }
     ],
-    "correct_option_id": "c",
-    "category": "knowledge"
+    "correct_option_id": "b",
+    "category": "debug"
   },
   {
     "id": "c-06",
     "subject": "C",
-    "code_snippet": "char s[] = \"hello\";\nprintf(\"%zu\", strlen(s));",
+    "code_snippet": "void fun() {\n    static int x = 0;\n    x++;\n    printf(\"%d \", x);\n}\n\nint main() {\n    fun();\n    fun();\n    fun();\n}",
     "prompt": "What is printed?",
     "options": [
-      { "id": "a", "text": "6" },
-      { "id": "b", "text": "4" },
-      { "id": "c", "text": "Undefined behavior" },
-      { "id": "d", "text": "5" }
+      { "id": "a", "text": "1 1 1" },
+      { "id": "b", "text": "0 0 0" },
+      { "id": "c", "text": "1 2 3" },
+      { "id": "d", "text": "3 3 3" }
     ],
-    "correct_option_id": "d",
+    "correct_option_id": "c",
     "category": "debug"
   },
   {
     "id": "c-07",
     "subject": "C",
-    "code_snippet": null,
-    "prompt": "What is the initial value of an uninitialized int variable declared at file scope?",
+    "code_snippet": "int a[] = {10, 20, 30, 40};\n\nint *p = a;\n\nprintf(\"%d\", *(p + 2));",
+    "prompt": "What is printed?",
     "options": [
-      { "id": "a", "text": "0" },
-      { "id": "b", "text": "Garbage (indeterminate)" },
-      { "id": "c", "text": "Reading it is undefined behavior" },
-      { "id": "d", "text": "Compile error" }
+      { "id": "a", "text": "10" },
+      { "id": "b", "text": "20" },
+      { "id": "c", "text": "30" },
+      { "id": "d", "text": "40" }
     ],
-    "correct_option_id": "a",
-    "category": "knowledge"
+    "correct_option_id": "c",
+    "category": "debug"
   },
   {
     "id": "c-08",
     "subject": "C",
-    "code_snippet": "int i = 0;\nint a = i++ + i++;",
-    "prompt": "What best describes this code?",
+    "code_snippet": "int x = 5;\nint y = 10;\n\nif (x < y == 1)\n    printf(\"Yes\");\nelse\n    printf(\"No\");",
+    "prompt": "What is printed?",
     "options": [
-      { "id": "a", "text": "a is 1" },
-      { "id": "b", "text": "a is 2" },
-      { "id": "c", "text": "Undefined behavior (unsequenced modifications of i)" },
-      { "id": "d", "text": "Compile error" }
+      { "id": "a", "text": "Yes" },
+      { "id": "b", "text": "No" },
+      { "id": "c", "text": "Compilation error" },
+      { "id": "d", "text": "Undefined behavior" }
     ],
-    "correct_option_id": "c",
+    "correct_option_id": "a",
     "category": "debug"
   },
   {
     "id": "c-09",
     "subject": "C",
-    "code_snippet": null,
-    "prompt": "What does the static keyword mean on a function defined at file scope?",
+    "code_snippet": "for (int i = 1; i <= 5; i++) {\n    if (i == 3)\n        break;\n    printf(\"%d \", i);\n}",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "The function is stored in static memory" },
-      { "id": "b", "text": "The function is visible only within its translation unit" },
-      { "id": "c", "text": "The function cannot be recursive" },
-      { "id": "d", "text": "Its local variables persist between calls" }
+      { "id": "a", "text": "1 2" },
+      { "id": "b", "text": "1 2 3" },
+      { "id": "c", "text": "3 4 5" },
+      { "id": "d", "text": "1 2 4 5" }
     ],
-    "correct_option_id": "b",
-    "category": "knowledge"
+    "correct_option_id": "a",
+    "category": "debug"
   },
   {
     "id": "c-10",
     "subject": "C",
-    "code_snippet": "char *p = \"hello\";\np[0] = 'H';\nprintf(\"%s\", p);",
-    "prompt": "What best describes this program's behavior?",
+    "code_snippet": "for (int i = 1; i <= 5; i++) {\n    if (i % 2 == 0)\n        continue;\n    printf(\"%d \", i);\n}",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "Prints Hello" },
-      { "id": "b", "text": "Prints hello" },
-      { "id": "c", "text": "Compile error" },
-      { "id": "d", "text": "Undefined behavior (modifying a string literal)" }
+      { "id": "a", "text": "1 2 3 4 5" },
+      { "id": "b", "text": "2 4" },
+      { "id": "c", "text": "1 3 5" },
+      { "id": "d", "text": "1 2 3" }
     ],
-    "correct_option_id": "d",
+    "correct_option_id": "c",
     "category": "debug"
   },
   {
     "id": "c-11",
     "subject": "C",
-    "code_snippet": null,
-    "prompt": "Which declaration makes p a pointer to an array of 10 ints?",
+    "code_snippet": "void change(int *p) {\n    *p = 50;\n}\n\nint main() {\n    int x = 10;\n    change(&x);\n    printf(\"%d\", x);\n}",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "int *p[10];" },
-      { "id": "b", "text": "int (*p)[10];" },
-      { "id": "c", "text": "int p[10];" },
-      { "id": "d", "text": "int **p;" }
+      { "id": "a", "text": "10" },
+      { "id": "b", "text": "50" },
+      { "id": "c", "text": "Address of x" },
+      { "id": "d", "text": "Error" }
     ],
     "correct_option_id": "b",
-    "category": "knowledge"
+    "category": "debug"
   },
   {
     "id": "c-12",
     "subject": "C",
-    "code_snippet": "int x = 10;\nint *p = &x;\n*p += 5;\nprintf(\"%d\", x);",
-    "prompt": "What is printed?",
+    "code_snippet": "void change(int x) {\n    x = 50;\n}\n\nint main() {\n    int a = 10;\n    change(a);\n    printf(\"%d\", a);\n}",
+    "prompt": "What is the output?",
     "options": [
       { "id": "a", "text": "10" },
-      { "id": "b", "text": "5" },
-      { "id": "c", "text": "15" },
-      { "id": "d", "text": "Undefined behavior" }
+      { "id": "b", "text": "50" },
+      { "id": "c", "text": "60" },
+      { "id": "d", "text": "Undefined" }
     ],
-    "correct_option_id": "c",
+    "correct_option_id": "a",
     "category": "debug"
   },
   {
     "id": "c-13",
     "subject": "C",
-    "code_snippet": null,
-    "prompt": "What is the value of the expression 7 / 2 when both operands are int?",
+    "code_snippet": "int *fun() {\n    int x = 10;\n    return &x;\n}",
+    "prompt": "What is the problem?",
     "options": [
-      { "id": "a", "text": "3" },
-      { "id": "b", "text": "3.5" },
-      { "id": "c", "text": "4" },
-      { "id": "d", "text": "Implementation-defined" }
+      { "id": "a", "text": "x must be static" },
+      { "id": "b", "text": "Address of a local variable is returned" },
+      { "id": "c", "text": "Function cannot return pointers" },
+      { "id": "d", "text": "int * is invalid" }
     ],
-    "correct_option_id": "a",
-    "category": "knowledge"
+    "correct_option_id": "b",
+    "category": "debug"
   },
   {
     "id": "c-14",
     "subject": "C",
-    "code_snippet": "unsigned int u = 0;\nu--;\nprintf(\"%u\", u);",
-    "prompt": "What value is printed?",
+    "code_snippet": "struct Student {\n    int age;\n};\n\nstruct Student s;\nstruct Student *p = &s;\n\np.age = 20;",
+    "prompt": "What should replace p.age?",
     "options": [
-      { "id": "a", "text": "-1" },
-      { "id": "b", "text": "The largest unsigned int value (UINT_MAX)" },
-      { "id": "c", "text": "0" },
-      { "id": "d", "text": "Undefined behavior" }
+      { "id": "a", "text": "p->age" },
+      { "id": "b", "text": "*p.age" },
+      { "id": "c", "text": "&p.age" },
+      { "id": "d", "text": "p::age" }
     ],
-    "correct_option_id": "b",
+    "correct_option_id": "a",
     "category": "debug"
   },
   {
     "id": "c-15",
     "subject": "C",
-    "code_snippet": null,
-    "prompt": "Which function reads a line from stdin with an explicit buffer-size limit?",
+    "code_snippet": "int i = 0;\n\nwhile (i < 5) {\n    printf(\"%d \", i);\n}",
+    "prompt": "What is missing?",
     "options": [
-      { "id": "a", "text": "gets" },
-      { "id": "b", "text": "scanf(\"%s\", buf)" },
-      { "id": "c", "text": "fgets" },
-      { "id": "d", "text": "puts" }
+      { "id": "a", "text": "break" },
+      { "id": "b", "text": "i++" },
+      { "id": "c", "text": "continue" },
+      { "id": "d", "text": "return" }
     ],
-    "correct_option_id": "c",
-    "category": "knowledge"
+    "correct_option_id": "b",
+    "category": "debug"
   },
   {
     "id": "c-16",
     "subject": "C",
-    "code_snippet": "for (int i = 0; i < 3; i++);\n{\n    printf(\"x\");\n}",
-    "prompt": "What is printed?",
+    "code_snippet": "int n = 10;\n\nif (n > 5);\n    printf(\"Greater\");",
+    "prompt": "What causes the problem?",
     "options": [
-      { "id": "a", "text": "xxx" },
-      { "id": "b", "text": "Nothing" },
-      { "id": "c", "text": "Compile error" },
-      { "id": "d", "text": "x" }
+      { "id": "a", "text": "Missing {}" },
+      { "id": "b", "text": "Extra semicolon after if" },
+      { "id": "c", "text": "Wrong data type" },
+      { "id": "d", "text": "Wrong printf" }
     ],
-    "correct_option_id": "d",
+    "correct_option_id": "b",
     "category": "debug"
   },
   {
     "id": "c-17",
     "subject": "C",
-    "code_snippet": null,
-    "prompt": "In the declaration const int *p, what does const restrict?",
+    "code_snippet": "int a[2][3] = {\n    {1, 2, 3},\n    {4, 5, 6}\n};\n\nprintf(\"%d\", a[1][2]);",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "The pointer p cannot be reassigned" },
-      { "id": "b", "text": "The pointed-to int cannot be modified through p" },
-      { "id": "c", "text": "Both the pointer and the pointed-to int are immutable" },
-      { "id": "d", "text": "Nothing; it is a compile error" }
+      { "id": "a", "text": "3" },
+      { "id": "b", "text": "4" },
+      { "id": "c", "text": "5" },
+      { "id": "d", "text": "6" }
     ],
-    "correct_option_id": "b",
-    "category": "knowledge"
+    "correct_option_id": "d",
+    "category": "debug"
   },
   {
     "id": "c-18",
     "subject": "C",
-    "code_snippet": "double d = 1 / 2;\nprintf(\"%f\", d);",
-    "prompt": "What is printed?",
+    "code_snippet": "int x = 8;\n\nprintf(\"%d\", x >> 1);",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "0.000000" },
-      { "id": "b", "text": "0.500000" },
-      { "id": "c", "text": "0.5" },
-      { "id": "d", "text": "Compile error" }
+      { "id": "a", "text": "2" },
+      { "id": "b", "text": "4" },
+      { "id": "c", "text": "8" },
+      { "id": "d", "text": "16" }
     ],
-    "correct_option_id": "a",
+    "correct_option_id": "b",
     "category": "debug"
   },
   {
     "id": "c-19",
     "subject": "C",
-    "code_snippet": null,
-    "prompt": "Inside void f(int a[10]), what does sizeof(a) evaluate to?",
+    "code_snippet": "int a = 2;\nint b = 4;\n\nprintf(\"%d\", a && b);",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "10 * sizeof(int)" },
-      { "id": "b", "text": "10" },
-      { "id": "c", "text": "sizeof(int *)" },
-      { "id": "d", "text": "Compile error" }
+      { "id": "a", "text": "0" },
+      { "id": "b", "text": "1" },
+      { "id": "c", "text": "6" },
+      { "id": "d", "text": "8" }
     ],
-    "correct_option_id": "c",
-    "category": "knowledge"
+    "correct_option_id": "b",
+    "category": "debug"
   },
   {
     "id": "c-20",
     "subject": "C",
-    "code_snippet": "switch (2) {\ncase 1: printf(\"one\");\ncase 2: printf(\"two\");\ncase 3: printf(\"three\");\n}",
-    "prompt": "What is printed?",
+    "code_snippet": "int *p = malloc(5 * sizeof(int));\n\np = realloc(p, 10 * sizeof(int));",
+    "prompt": "Which is the safer approach?",
     "options": [
-      { "id": "a", "text": "two" },
-      { "id": "b", "text": "twothree" },
-      { "id": "c", "text": "onetwothree" },
-      { "id": "d", "text": "Compile error" }
+      { "id": "a", "text": "Always use free(p) first" },
+      { "id": "b", "text": "Store realloc result in a temporary pointer" },
+      { "id": "c", "text": "Never use realloc" },
+      { "id": "d", "text": "Use calloc instead" }
     ],
     "correct_option_id": "b",
     "category": "debug"
@@ -282,97 +282,97 @@
   {
     "id": "c-21",
     "subject": "C",
-    "code_snippet": null,
-    "prompt": "Which of these is NOT a storage-class specifier in C?",
+    "code_snippet": "int fib(int n) {\n    if (n == 0)\n        return 0;\n    return fib(n - 1) + fib(n - 2);\n}",
+    "prompt": "What problem occurs for n = 1?",
     "options": [
-      { "id": "a", "text": "static" },
-      { "id": "b", "text": "extern" },
-      { "id": "c", "text": "register" },
-      { "id": "d", "text": "volatile" }
+      { "id": "a", "text": "No problem" },
+      { "id": "b", "text": "Infinite recursion because fib(-1) is reached" },
+      { "id": "c", "text": "Stack is automatically cleared" },
+      { "id": "d", "text": "Syntax error" }
     ],
-    "correct_option_id": "d",
-    "category": "knowledge"
+    "correct_option_id": "b",
+    "category": "debug"
   },
   {
     "id": "c-22",
     "subject": "C",
-    "code_snippet": "char s[5];\nstrcpy(s, \"hello\");",
-    "prompt": "What best describes this code?",
+    "code_snippet": "const int x = 10;\nint *p = &x;\n\n*p = 20;",
+    "prompt": "What is wrong?",
     "options": [
-      { "id": "a", "text": "Copies \"hell\" and truncates safely" },
-      { "id": "b", "text": "Works fine; s holds \"hello\"" },
-      { "id": "c", "text": "Undefined behavior (buffer overflow)" },
-      { "id": "d", "text": "Compile error" }
+      { "id": "a", "text": "p must be float *" },
+      { "id": "b", "text": "x is constant and must not be modified" },
+      { "id": "c", "text": "&x is invalid" },
+      { "id": "d", "text": "const works only with arrays" }
     ],
-    "correct_option_id": "c",
+    "correct_option_id": "b",
     "category": "debug"
   },
   {
     "id": "c-23",
     "subject": "C",
-    "code_snippet": null,
-    "prompt": "What does strcmp(\"abc\", \"abd\") return?",
+    "code_snippet": "for (int i = 0; i < n - 1; i++) {\n    for (int j = 0; j < n - 1; j++) {\n        if (a[j] > a[j + 1]) {\n            int t = a[j];\n            a[j] = a[j + 1];\n            a[j + 1] = t;\n        }\n    }\n}",
+    "prompt": "This algorithm is:",
     "options": [
-      { "id": "a", "text": "A negative value" },
-      { "id": "b", "text": "0" },
-      { "id": "c", "text": "A positive value" },
-      { "id": "d", "text": "Undefined behavior" }
+      { "id": "a", "text": "Selection sort" },
+      { "id": "b", "text": "Insertion sort" },
+      { "id": "c", "text": "Bubble sort" },
+      { "id": "d", "text": "Merge sort" }
     ],
-    "correct_option_id": "a",
+    "correct_option_id": "c",
     "category": "knowledge"
   },
   {
     "id": "c-24",
     "subject": "C",
-    "code_snippet": "int n = 0;\nwhile (n < 3)\n    printf(\"%d\", n);\n    n++;",
-    "prompt": "What best describes this program's behavior?",
+    "code_snippet": "int *p = malloc(100 * sizeof(int));\n\np = malloc(200 * sizeof(int));\n\nfree(p);",
+    "prompt": "What happened?",
     "options": [
-      { "id": "a", "text": "Prints 012" },
-      { "id": "b", "text": "Prints 0 once" },
-      { "id": "c", "text": "Infinite loop printing 0" },
-      { "id": "d", "text": "Compile error" }
+      { "id": "a", "text": "No issue" },
+      { "id": "b", "text": "First allocated block was leaked" },
+      { "id": "c", "text": "Second allocation is automatically freed" },
+      { "id": "d", "text": "Compilation error" }
     ],
-    "correct_option_id": "c",
+    "correct_option_id": "b",
     "category": "debug"
   },
   {
     "id": "c-25",
     "subject": "C",
-    "code_snippet": null,
-    "prompt": "What does void mean in the parameter list of int f(void)?",
+    "code_snippet": "int *p = malloc(5 * sizeof(int));\n\nif (p == NULL)\n    printf(\"Allocation failed\");\n\np[0] = 10;",
+    "prompt": "What should be added after the failure check?",
     "options": [
-      { "id": "a", "text": "The function returns no value" },
-      { "id": "b", "text": "The function takes no arguments" },
-      { "id": "c", "text": "The function is inline" },
-      { "id": "d", "text": "The function has internal linkage" }
+      { "id": "a", "text": "return 0;" },
+      { "id": "b", "text": "free(p); only" },
+      { "id": "c", "text": "p = NULL;" },
+      { "id": "d", "text": "Nothing" }
     ],
-    "correct_option_id": "b",
-    "category": "knowledge"
+    "correct_option_id": "a",
+    "category": "debug"
   },
   {
     "id": "py-01",
     "subject": "PYTHON",
-    "code_snippet": null,
-    "prompt": "What does len(range(0, 10, 2)) return?",
+    "code_snippet": "def add_item(item, items=[]):\n    items.append(item)\n    return items\n\nprint(add_item(1))\nprint(add_item(2))",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "4" },
-      { "id": "b", "text": "5" },
-      { "id": "c", "text": "10" },
-      { "id": "d", "text": "TypeError" }
+      { "id": "a", "text": "[1] followed by [2]" },
+      { "id": "b", "text": "[1] followed by [1, 2]" },
+      { "id": "c", "text": "[1, 2] followed by [1, 2]" },
+      { "id": "d", "text": "Error" }
     ],
     "correct_option_id": "b",
-    "category": "knowledge"
+    "category": "debug"
   },
   {
     "id": "py-02",
     "subject": "PYTHON",
-    "code_snippet": "x = [1, 2, 3]\ny = x\ny.append(4)\nprint(len(x))",
-    "prompt": "What is printed?",
+    "code_snippet": "a = [[0] * 3] * 3\na[0][0] = 5\n\nprint(a)",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "3" },
-      { "id": "b", "text": "4" },
-      { "id": "c", "text": "NameError" },
-      { "id": "d", "text": "None" }
+      { "id": "a", "text": "[[5, 0, 0], [0, 0, 0], [0, 0, 0]]" },
+      { "id": "b", "text": "[[5, 0, 0], [5, 0, 0], [5, 0, 0]]" },
+      { "id": "c", "text": "[[0, 0, 0], [0, 0, 0], [0, 0, 0]]" },
+      { "id": "d", "text": "Error" }
     ],
     "correct_option_id": "b",
     "category": "debug"
@@ -380,195 +380,195 @@
   {
     "id": "py-03",
     "subject": "PYTHON",
-    "code_snippet": null,
-    "prompt": "Which of these built-in types is immutable?",
+    "code_snippet": "data = {\"a\": 1, \"b\": 2}\n\nfor key, value in data:\n    print(key, value)",
+    "prompt": "What is the correct fix?",
     "options": [
-      { "id": "a", "text": "list" },
-      { "id": "b", "text": "dict" },
-      { "id": "c", "text": "set" },
-      { "id": "d", "text": "tuple" }
+      { "id": "a", "text": "for key, value in data.items():" },
+      { "id": "b", "text": "for key, value in data.keys():" },
+      { "id": "c", "text": "for key, value in data.values():" },
+      { "id": "d", "text": "for key in data.items():" }
     ],
-    "correct_option_id": "d",
-    "category": "knowledge"
+    "correct_option_id": "a",
+    "category": "debug"
   },
   {
     "id": "py-04",
     "subject": "PYTHON",
-    "code_snippet": "def f(x, lst=[]):\n    lst.append(x)\n    return lst\n\nprint(f(1))\nprint(f(2))",
-    "prompt": "What is printed?",
+    "code_snippet": "s = \"hello\"\ns[0] = \"H\"",
+    "prompt": "What happens?",
     "options": [
-      { "id": "a", "text": "[1] then [2]" },
-      { "id": "b", "text": "[1] then [1, 2]" },
-      { "id": "c", "text": "[1] then [1]" },
-      { "id": "d", "text": "TypeError" }
+      { "id": "a", "text": "Hello" },
+      { "id": "b", "text": "hello" },
+      { "id": "c", "text": "TypeError" },
+      { "id": "d", "text": "IndexError" }
     ],
-    "correct_option_id": "b",
+    "correct_option_id": "c",
     "category": "debug"
   },
   {
     "id": "py-05",
     "subject": "PYTHON",
-    "code_snippet": null,
-    "prompt": "What does the expression 3 * 'ab' evaluate to?",
+    "code_snippet": "def factorial(n):\n    return n * factorial(n - 1)\n\nprint(factorial(5))",
+    "prompt": "What is missing?",
     "options": [
-      { "id": "a", "text": "'ababab'" },
-      { "id": "b", "text": "'ab3'" },
-      { "id": "c", "text": "'aaabbb'" },
-      { "id": "d", "text": "TypeError" }
+      { "id": "a", "text": "Loop" },
+      { "id": "b", "text": "Base case" },
+      { "id": "c", "text": "List" },
+      { "id": "d", "text": "Import statement" }
     ],
-    "correct_option_id": "a",
-    "category": "knowledge"
+    "correct_option_id": "b",
+    "category": "debug"
   },
   {
     "id": "py-06",
     "subject": "PYTHON",
-    "code_snippet": "x = [1, 2, 3]\ny = x[:]\ny.append(4)\nprint(len(x), len(y))",
-    "prompt": "What is printed?",
+    "code_snippet": "a = [[1, 2], [3, 4]]\nb = a.copy()\n\nb[0][0] = 99\n\nprint(a)",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "4 4" },
-      { "id": "b", "text": "3 3" },
-      { "id": "c", "text": "3 4" },
-      { "id": "d", "text": "4 3" }
+      { "id": "a", "text": "[[1, 2], [3, 4]]" },
+      { "id": "b", "text": "[[99, 2], [3, 4]]" },
+      { "id": "c", "text": "[99, 2, 3, 4]" },
+      { "id": "d", "text": "Error" }
     ],
-    "correct_option_id": "c",
+    "correct_option_id": "b",
     "category": "debug"
   },
   {
     "id": "py-07",
     "subject": "PYTHON",
-    "code_snippet": null,
-    "prompt": "In Python 3, what type does the / operator return for two int operands?",
+    "code_snippet": "a = [1, 2, 3]\nb = [1, 2, 3]\n\nprint(a is b)",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "int" },
-      { "id": "b", "text": "float" },
-      { "id": "c", "text": "Decimal" },
-      { "id": "d", "text": "int if evenly divisible, otherwise float" }
+      { "id": "a", "text": "True" },
+      { "id": "b", "text": "False" },
+      { "id": "c", "text": "Error" },
+      { "id": "d", "text": "None" }
     ],
     "correct_option_id": "b",
-    "category": "knowledge"
+    "category": "debug"
   },
   {
     "id": "py-08",
     "subject": "PYTHON",
-    "code_snippet": "def f():\n    x = 10\n    def g():\n        x += 1\n        return x\n    return g()\n\nprint(f())",
-    "prompt": "What is the result of running this code?",
+    "code_snippet": "numbers = [1, 2, 3, 4, 5]\n\nfor x in numbers:\n    if x % 2 == 0:\n        numbers.remove(x)\n\nprint(numbers)",
+    "prompt": "What is the main issue?",
     "options": [
-      { "id": "a", "text": "11" },
-      { "id": "b", "text": "10" },
-      { "id": "c", "text": "UnboundLocalError" },
-      { "id": "d", "text": "RecursionError" }
+      { "id": "a", "text": "remove() does not exist" },
+      { "id": "b", "text": "The list is modified during iteration" },
+      { "id": "c", "text": "% is invalid" },
+      { "id": "d", "text": "for cannot iterate lists" }
     ],
-    "correct_option_id": "c",
+    "correct_option_id": "b",
     "category": "debug"
   },
   {
     "id": "py-09",
     "subject": "PYTHON",
-    "code_snippet": null,
-    "prompt": "Which expression creates a shallow copy of dict d?",
+    "code_snippet": "data = {}\n\ndata[[1, 2]] = \"value\"",
+    "prompt": "What happens?",
     "options": [
-      { "id": "a", "text": "d.copy()" },
-      { "id": "b", "text": "d.clone()" },
-      { "id": "c", "text": "copy d" },
-      { "id": "d", "text": "d[:]" }
+      { "id": "a", "text": "Works normally" },
+      { "id": "b", "text": "KeyError" },
+      { "id": "c", "text": "TypeError" },
+      { "id": "d", "text": "IndexError" }
     ],
-    "correct_option_id": "a",
-    "category": "knowledge"
+    "correct_option_id": "c",
+    "category": "debug"
   },
   {
     "id": "py-10",
     "subject": "PYTHON",
-    "code_snippet": "print(0.1 + 0.2 == 0.3)",
-    "prompt": "What is printed?",
+    "code_snippet": "x = {1, 2, 2, 3, 3}\nprint(len(x))",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "True" },
-      { "id": "b", "text": "False" },
-      { "id": "c", "text": "0.3" },
-      { "id": "d", "text": "TypeError" }
+      { "id": "a", "text": "5" },
+      { "id": "b", "text": "4" },
+      { "id": "c", "text": "3" },
+      { "id": "d", "text": "2" }
     ],
-    "correct_option_id": "b",
+    "correct_option_id": "c",
     "category": "debug"
   },
   {
     "id": "py-11",
     "subject": "PYTHON",
-    "code_snippet": null,
-    "prompt": "What does the is operator test?",
+    "code_snippet": "def numbers():\n    yield 1\n    yield 2\n    yield 3\n\nx = numbers()\n\nprint(x)",
+    "prompt": "What does x contain?",
     "options": [
-      { "id": "a", "text": "Value equality" },
-      { "id": "b", "text": "Type equality" },
-      { "id": "c", "text": "Object identity (same object in memory)" },
-      { "id": "d", "text": "Membership" }
+      { "id": "a", "text": "[1, 2, 3]" },
+      { "id": "b", "text": "1" },
+      { "id": "c", "text": "A generator object" },
+      { "id": "d", "text": "None" }
     ],
     "correct_option_id": "c",
-    "category": "knowledge"
+    "category": "debug"
   },
   {
     "id": "py-12",
     "subject": "PYTHON",
-    "code_snippet": "t = (1, 2, 3)\nt[0] = 5\nprint(t)",
-    "prompt": "What is the result of running this code?",
+    "code_snippet": "try:\n    x = 10 / 0\nexcept ValueError:\n    print(\"Error\")",
+    "prompt": "What happens?",
     "options": [
-      { "id": "a", "text": "(5, 2, 3)" },
-      { "id": "b", "text": "(1, 2, 3)" },
-      { "id": "c", "text": "ValueError" },
-      { "id": "d", "text": "TypeError" }
+      { "id": "a", "text": "Prints Error" },
+      { "id": "b", "text": "ZeroDivisionError is raised" },
+      { "id": "c", "text": "Prints 0" },
+      { "id": "d", "text": "Returns None" }
     ],
-    "correct_option_id": "d",
+    "correct_option_id": "b",
     "category": "debug"
   },
   {
     "id": "py-13",
     "subject": "PYTHON",
-    "code_snippet": null,
-    "prompt": "What does list('abc') return?",
+    "code_snippet": "try:\n    print(\"A\")\nfinally:\n    print(\"B\")",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "['abc']" },
-      { "id": "b", "text": "['a', 'b', 'c']" },
-      { "id": "c", "text": "('a', 'b', 'c')" },
-      { "id": "d", "text": "TypeError" }
-    ],
-    "correct_option_id": "b",
-    "category": "knowledge"
-  },
-  {
-    "id": "py-14",
-    "subject": "PYTHON",
-    "code_snippet": "d = {}\nd[1] = 'a'\nd[1.0] = 'b'\nprint(d)",
-    "prompt": "What is printed?",
-    "options": [
-      { "id": "a", "text": "{1: 'a', 1.0: 'b'}" },
-      { "id": "b", "text": "{1.0: 'b'}" },
-      { "id": "c", "text": "{1: 'b'}" },
-      { "id": "d", "text": "TypeError" }
+      { "id": "a", "text": "A" },
+      { "id": "b", "text": "B" },
+      { "id": "c", "text": "A followed by B" },
+      { "id": "d", "text": "Error" }
     ],
     "correct_option_id": "c",
     "category": "debug"
   },
   {
-    "id": "py-15",
+    "id": "py-14",
     "subject": "PYTHON",
-    "code_snippet": null,
-    "prompt": "Which keyword lets an inner function rebind a variable from an enclosing (non-global) scope?",
+    "code_snippet": "numbers = [1, 2, 3, 4]\n\nresult = list(map(lambda x: x * 2, numbers))\n\nprint(result)",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "global" },
-      { "id": "b", "text": "nonlocal" },
-      { "id": "c", "text": "outer" },
-      { "id": "d", "text": "static" }
+      { "id": "a", "text": "[1, 2, 3, 4]" },
+      { "id": "b", "text": "[2, 4, 6, 8]" },
+      { "id": "c", "text": "[1, 4, 9, 16]" },
+      { "id": "d", "text": "Error" }
     ],
     "correct_option_id": "b",
-    "category": "knowledge"
+    "category": "debug"
+  },
+  {
+    "id": "py-15",
+    "subject": "PYTHON",
+    "code_snippet": "result = [x for x in range(10) if x % 2 == 0]\nprint(result)",
+    "prompt": "What is the output?",
+    "options": [
+      { "id": "a", "text": "[1, 3, 5, 7, 9]" },
+      { "id": "b", "text": "[0, 2, 4, 6, 8]" },
+      { "id": "c", "text": "[2, 4, 6, 8, 10]" },
+      { "id": "d", "text": "[0, 1, 2, 3, 4]" }
+    ],
+    "correct_option_id": "b",
+    "category": "debug"
   },
   {
     "id": "py-16",
     "subject": "PYTHON",
-    "code_snippet": "x = 'abc'\nprint(x.upper())\nprint(x)",
-    "prompt": "What is printed?",
+    "code_snippet": "def total(*args):\n    return sum(args)\n\nprint(total(1, 2, 3, 4))",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "ABC then ABC" },
-      { "id": "b", "text": "abc then abc" },
-      { "id": "c", "text": "ABC then abc" },
-      { "id": "d", "text": "AttributeError" }
+      { "id": "a", "text": "4" },
+      { "id": "b", "text": "6" },
+      { "id": "c", "text": "10" },
+      { "id": "d", "text": "Error" }
     ],
     "correct_option_id": "c",
     "category": "debug"
@@ -576,55 +576,55 @@
   {
     "id": "py-17",
     "subject": "PYTHON",
-    "code_snippet": null,
-    "prompt": "What does list(range(5, 0, -1)) return?",
+    "code_snippet": "def show(**kwargs):\n    print(kwargs[\"name\"])\n\nshow(age=20)",
+    "prompt": "What happens?",
     "options": [
-      { "id": "a", "text": "[5, 4, 3, 2, 1]" },
-      { "id": "b", "text": "[5, 4, 3, 2, 1, 0]" },
-      { "id": "c", "text": "[]" },
-      { "id": "d", "text": "ValueError" }
+      { "id": "a", "text": "Prints 20" },
+      { "id": "b", "text": "Prints name" },
+      { "id": "c", "text": "KeyError" },
+      { "id": "d", "text": "TypeError" }
     ],
-    "correct_option_id": "a",
-    "category": "knowledge"
+    "correct_option_id": "c",
+    "category": "debug"
   },
   {
     "id": "py-18",
     "subject": "PYTHON",
-    "code_snippet": "def f(*args, **kwargs):\n    return len(args), len(kwargs)\n\nprint(f(1, 2, a=3))",
-    "prompt": "What is printed?",
+    "code_snippet": "x = 10\n\ndef change():\n    x = 20\n\nchange()\nprint(x)",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "(3, 0)" },
-      { "id": "b", "text": "(2, 1)" },
-      { "id": "c", "text": "(1, 2)" },
-      { "id": "d", "text": "TypeError" }
+      { "id": "a", "text": "10" },
+      { "id": "b", "text": "20" },
+      { "id": "c", "text": "None" },
+      { "id": "d", "text": "Error" }
     ],
-    "correct_option_id": "b",
+    "correct_option_id": "a",
     "category": "debug"
   },
   {
     "id": "py-19",
     "subject": "PYTHON",
-    "code_snippet": null,
-    "prompt": "Which comprehension syntax builds a set?",
+    "code_snippet": "x = 10\n\ndef change():\n    global x\n    x = 20\n\nchange()\nprint(x)",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "[x for x in s]" },
-      { "id": "b", "text": "(x for x in s)" },
-      { "id": "c", "text": "{x: x for x in s}" },
-      { "id": "d", "text": "{x for x in s}" }
+      { "id": "a", "text": "10" },
+      { "id": "b", "text": "20" },
+      { "id": "c", "text": "None" },
+      { "id": "d", "text": "Error" }
     ],
-    "correct_option_id": "d",
-    "category": "knowledge"
+    "correct_option_id": "b",
+    "category": "debug"
   },
   {
     "id": "py-20",
     "subject": "PYTHON",
-    "code_snippet": "try:\n    print(1 // 0)\nexcept ZeroDivisionError:\n    print('caught')\nfinally:\n    print('done')",
-    "prompt": "What is printed?",
+    "code_snippet": "a = 7\nb = 2\n\nprint(a // b)",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "caught only" },
-      { "id": "b", "text": "done only" },
-      { "id": "c", "text": "caught then done" },
-      { "id": "d", "text": "An uncaught ZeroDivisionError traceback" }
+      { "id": "a", "text": "3.5" },
+      { "id": "b", "text": "4" },
+      { "id": "c", "text": "3" },
+      { "id": "d", "text": "2" }
     ],
     "correct_option_id": "c",
     "category": "debug"
@@ -632,55 +632,55 @@
   {
     "id": "py-21",
     "subject": "PYTHON",
-    "code_snippet": null,
-    "prompt": "What does the enumerate() built-in yield on each iteration?",
+    "code_snippet": "print(-7 % 3)",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "Just the values" },
-      { "id": "b", "text": "(index, value) tuples" },
-      { "id": "c", "text": "(value, index) tuples" },
-      { "id": "d", "text": "A dict mapping index to value" }
+      { "id": "a", "text": "-1" },
+      { "id": "b", "text": "1" },
+      { "id": "c", "text": "2" },
+      { "id": "d", "text": "-2" }
     ],
-    "correct_option_id": "b",
-    "category": "knowledge"
+    "correct_option_id": "c",
+    "category": "debug"
   },
   {
     "id": "py-22",
     "subject": "PYTHON",
-    "code_snippet": "a = [1, 2, 3]\nb = a\na = a + [4]\nprint(b)",
-    "prompt": "What is printed?",
+    "code_snippet": "words = [\"apple\", \"kiwi\", \"banana\"]\n\nwords.sort(key=len)\n\nprint(words)",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "[1, 2, 3]" },
-      { "id": "b", "text": "[1, 2, 3, 4]" },
-      { "id": "c", "text": "[4]" },
-      { "id": "d", "text": "NameError" }
+      { "id": "a", "text": "['apple', 'kiwi', 'banana']" },
+      { "id": "b", "text": "['kiwi', 'apple', 'banana']" },
+      { "id": "c", "text": "['banana', 'apple', 'kiwi']" },
+      { "id": "d", "text": "Error" }
     ],
-    "correct_option_id": "a",
+    "correct_option_id": "b",
     "category": "debug"
   },
   {
     "id": "py-23",
     "subject": "PYTHON",
-    "code_snippet": null,
-    "prompt": "What does bool('False') evaluate to?",
+    "code_snippet": "def total(a):\n    if len(a) == 0:\n        return 0\n    return a[0] + total(a[1:])\n\nprint(total([1, 2, 3, 4]))",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "False" },
-      { "id": "b", "text": "True" },
-      { "id": "c", "text": "None" },
-      { "id": "d", "text": "ValueError" }
+      { "id": "a", "text": "4" },
+      { "id": "b", "text": "6" },
+      { "id": "c", "text": "10" },
+      { "id": "d", "text": "Recursion error" }
     ],
-    "correct_option_id": "b",
-    "category": "knowledge"
+    "correct_option_id": "c",
+    "category": "debug"
   },
   {
     "id": "py-24",
     "subject": "PYTHON",
-    "code_snippet": "funcs = []\nfor i in range(3):\n    funcs.append(lambda: i)\nprint(funcs[0]())",
-    "prompt": "What is printed?",
+    "code_snippet": "def outer():\n    x = 10\n\n    def inner():\n        return x + 5\n\n    return inner\n\nf = outer()\nprint(f())",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "0" },
-      { "id": "b", "text": "1" },
-      { "id": "c", "text": "2" },
-      { "id": "d", "text": "NameError" }
+      { "id": "a", "text": "5" },
+      { "id": "b", "text": "10" },
+      { "id": "c", "text": "15" },
+      { "id": "d", "text": "Error" }
     ],
     "correct_option_id": "c",
     "category": "debug"
@@ -688,15 +688,15 @@
   {
     "id": "py-25",
     "subject": "PYTHON",
-    "code_snippet": null,
-    "prompt": "Which method initializes a newly created instance of a class?",
+    "code_snippet": "x = 10\n\ndef change(x):\n    x += 5\n\nchange(x)\nprint(x)",
+    "prompt": "What is the output?",
     "options": [
-      { "id": "a", "text": "__new__" },
-      { "id": "b", "text": "__create__" },
-      { "id": "c", "text": "__start__" },
-      { "id": "d", "text": "__init__" }
+      { "id": "a", "text": "10" },
+      { "id": "b", "text": "15" },
+      { "id": "c", "text": "5" },
+      { "id": "d", "text": "Error" }
     ],
-    "correct_option_id": "d",
-    "category": "knowledge"
+    "correct_option_id": "a",
+    "category": "debug"
   }
 ]
