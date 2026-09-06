@@ -254,21 +254,25 @@
     <dialog id="submit-modal" class="submit-dialog" aria-labelledby="submit-title" aria-describedby="submit-description">
       <form method="dialog">
         <div class="dialog-heading">
-          <p class="section-label">Final check</p>
-          <h2 id="submit-title">Submit this attempt?</h2>
-          <p id="submit-description">Submission locks every answer. This action cannot be undone.</p>
+          <p class="section-label">Submission confirmation</p>
+          <h2 id="submit-title">Confirm Exam Submission?</h2>
+          <p id="submit-description">Please review your question summary before submitting.</p>
         </div>
 
+        <div id="modal-warning-box" class="alert alert-warning hidden" role="alert"></div>
+
         <dl class="review-counts">
-          <div><dt>Answered</dt><dd id="modal-answered">0</dd></div>
-          <div><dt>Unanswered</dt><dd id="modal-unanswered">0</dd></div>
-          <div><dt>Flagged</dt><dd id="modal-flagged">0</dd></div>
+          <div class="review-count-answered"><dt>Answered</dt><dd id="modal-answered">0</dd></div>
+          <div class="review-count-unanswered"><dt>Unanswered</dt><dd id="modal-unanswered">0</dd></div>
+          <div class="review-count-flagged"><dt>Flagged</dt><dd id="modal-flagged">0</dd></div>
         </dl>
         <div id="submit-alert" class="alert alert-danger hidden" role="alert"></div>
 
         <div class="dialog-actions">
           <button id="close-submit-button" class="button button-secondary" type="button">Return to exam</button>
-          <button id="confirm-submit-button" class="button button-primary" type="button">Submit attempt</button>
+          <button id="confirm-submit-button" class="button button-primary" type="button">
+            <span class="btn-check-icon" aria-hidden="true">✓</span> Confirm &amp; Submit
+          </button>
         </div>
       </form>
     </dialog>

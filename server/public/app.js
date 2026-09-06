@@ -426,9 +426,26 @@
   function openSubmitDialog() {
     const total = state.questions.length;
     const answered = Object.keys(state.answers).length;
+    const unanswered = total - answered;
+    const flagged = Object.values(state.flags).filter(Boolean).length;
+
     document.getElementById("modal-answered").textContent = answered;
-    document.getElementById("modal-unanswered").textContent = total - answered;
-    document.getElementById("modal-flagged").textContent = Object.values(state.flags).filter(Boolean).length;
+    document.getElementById("modal-unanswered").textContent = unanswered;
+    document.getElementById("modal-flagged").textContent = flagged;
+
+    const desc = document.getElementById("submit-description");
+    const warning = document.getElementById("modal-warning-box");
+
+    if (unanswered === 0) {
+      desc.textContent = `Confirm to submit: ${answered} answered, 0 unanswered, and ${flagged} flagged. All questions answered!`;
+      warning.classList.add("hidden");
+      warning.textContent = "";
+    } else {
+      desc.textContent = `Confirm to submit: ${answered} answered, ${unanswered} unanswered, and ${flagged} flagged.`;
+      warning.classList.remove("hidden");
+      warning.textContent = `Warning: You have ${unanswered} unanswered question${unanswered > 1 ? "s" : ""}. Please confirm if you wish to submit now.`;
+    }
+
     showAlert("submit-alert", null);
     document.getElementById("submit-modal").showModal();
   }

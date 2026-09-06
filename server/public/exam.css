@@ -525,6 +525,12 @@ p {
   color: var(--success);
 }
 
+.alert-warning {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border: 1px solid var(--warning);
+}
+
 .start-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.72fr);
@@ -787,11 +793,19 @@ p {
 }
 
 .grid-node.flagged {
-  box-shadow: inset 0 -8px 0 var(--flag);
+  border-color: var(--flag);
+  background: var(--flag);
+  color: #182231;
+  font-weight: 800;
+  box-shadow: none;
+}
+
+.grid-node.flagged:hover {
+  filter: brightness(0.95);
 }
 
 .grid-node.flagged:focus-visible {
-  box-shadow: var(--focus), inset 0 -8px 0 var(--flag);
+  box-shadow: var(--focus);
 }
 
 .grid-node.unsynced {
@@ -805,7 +819,7 @@ p {
   outline-offset: 2px;
 }
 
-.grid-node.current:not(.answered) {
+.grid-node.current:not(.answered):not(.flagged) {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
@@ -1036,17 +1050,24 @@ p {
 }
 
 .submit-dialog {
-  width: min(100% - 2rem, 34rem);
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(100% - 2rem, 32rem);
+  max-height: 90vh;
+  overflow-y: auto;
   padding: 0;
-  border: 0;
+  border: 1px solid var(--line);
   border-radius: var(--radius-panel);
   background: var(--surface);
   color: var(--ink);
-  box-shadow: 0 8px 24px rgba(23, 32, 44, 0.2);
+  box-shadow: 0 20px 40px rgba(15, 23, 34, 0.25);
+  z-index: var(--z-modal);
 }
 
 .submit-dialog::backdrop {
   background: rgba(15, 23, 34, 0.64);
+  backdrop-filter: blur(2px);
 }
 
 .submit-dialog form {
@@ -1077,17 +1098,40 @@ p {
   flex-direction: column-reverse;
   padding: 0.8rem;
   background: var(--surface-subtle);
+  text-align: center;
 }
 
 .review-counts dt {
   color: var(--ink-muted);
   font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.25rem;
 }
 
 .review-counts dd {
   font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-  font-size: 1.4rem;
-  font-weight: 750;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.review-counts .review-count-answered dd {
+  color: var(--answered);
+}
+
+.review-counts .review-count-unanswered dd {
+  color: var(--danger);
+}
+
+.review-counts .review-count-flagged dd {
+  color: var(--warning);
+}
+
+.btn-check-icon {
+  display: inline-block;
+  font-weight: 900;
+  margin-right: 0.35rem;
 }
 
 .dialog-actions {
@@ -1251,7 +1295,7 @@ p {
   }
 
   .grid-node.flagged {
-    border-bottom: 8px solid LinkText;
+    border: 2px double CanvasText;
     box-shadow: none;
   }
 
