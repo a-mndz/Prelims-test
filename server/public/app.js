@@ -510,15 +510,17 @@
     document.getElementById("timer-box").classList.add("hidden");
     document.getElementById("save-status").classList.add("hidden");
     const noteEl = document.getElementById("submitted-note");
-    if (!noteEl.dataset.base) noteEl.dataset.base = noteEl.textContent;
-    let text = SUBMITTED_NOTES[cause] || noteEl.dataset.base;
-    // Only known when this tab ran the exam; on a fresh resume of an already
-    // submitted attempt there is no local answer state to count.
-    if (state.questions.length) {
-      const answered = Object.keys(state.answers).length;
-      text += ` ${answered} of ${state.questions.length} answers were recorded.`;
+    if (noteEl) {
+      if (!noteEl.dataset.base) noteEl.dataset.base = noteEl.textContent;
+      let text = SUBMITTED_NOTES[cause] || noteEl.dataset.base;
+      // Only known when this tab ran the exam; on a fresh resume of an already
+      // submitted attempt there is no local answer state to count.
+      if (state.questions.length) {
+        const answered = Object.keys(state.answers).length;
+        text += ` ${answered} of ${state.questions.length} answers were recorded.`;
+      }
+      noteEl.textContent = text;
     }
-    noteEl.textContent = text;
     const dialog = document.getElementById("submit-modal");
     if (dialog.open) dialog.close();
     showView("view-submitted");

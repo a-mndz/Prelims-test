@@ -858,32 +858,36 @@ p {
 }
 
 .submitted-view {
-  max-width: 40rem;
-  padding: 6rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  max-width: 54rem;
+  margin: 0 auto;
+  min-height: calc(100dvh - 14rem);
+  padding: 5rem 1.5rem;
 }
 
 .status-mark {
   display: grid;
   place-items: center;
-  width: 3.5rem;
-  height: 3.5rem;
-  margin-bottom: 2rem;
+  width: 5.5rem;
+  height: 5.5rem;
+  margin-bottom: 2.25rem;
   border-radius: 50%;
   background: var(--success-soft);
   color: var(--success);
-  font-size: 1.65rem;
+  font-size: 2.5rem;
   font-weight: 800;
 }
 
 .submitted-view h1 {
-  font-size: clamp(2.25rem, 5vw, 3.75rem);
-}
-
-.submitted-view > p:last-child {
-  max-width: 58ch;
-  margin-top: 1rem;
-  color: var(--ink-muted);
-  font-size: 1.08rem;
+  font-size: clamp(3.4rem, 8vw, 5.6rem);
+  font-weight: 850;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  text-align: center;
 }
 
 .admin-view {
