@@ -101,6 +101,60 @@ export function createApp(store = createStore(), rl = createRateLimiter(), bank 
     return sendJson(res, 200, { status: "ok", role: "admin" });
   }
 
+  async function unifiedLogin(req, res) {
+    const ip = clientIp(req);
+    if (!rl.check(`plogin:${ip}`, config.rateLimits.participantLogin).allowed) {
+      return sendJson(res, 429, { error: "rate_limited" });
+    }
+    const { value, error } = await readJsonBody(req);
+    if (error) return sendJson(res, 400, { error });
+    const { username, password } = value || {};
+    if (typeof username !== "string" || typeof password !== "string") {
+      return sendJson(res, 400, { error: "missing_credentials" });
+    }
+    const name = username.trim();
+    if (!name) return sendJson(res, 400, { error: "missing_credentials" });
+
+    const a = await store.getAdminByUsername(name);
+    if (a) {
+      const lockedOut = store.adminFailuresForIp(ip) >= config.loginLockoutThreshold;
+      const pwOk = await verifyPasswordAsync(password, a.password_hash);
+      if (lockedOut || !pwOk) {
+        store.bumpAdminFailure(ip);
+        return sendJson(res, 401, { error: "invalid_credentials" });
+      }
+      store.resetAdminFailures(ip);
+      const sid = await store.issueAdminSession(a.id);
+      const token = signJwt({ sub: a.id, role: "admin", sid }, config.jwtSecret, tokenTtlSec);
+      setSessionCookie(res, token, tokenTtlSec);
+      return sendJson(res, 200, { status: "ok", role: "admin" });
+    }
+
+    const p = await store.getParticipantByUsername(name);
+    const pwOk = await verifyPasswordAsync(password, p ? p.password_hash : DUMMY_PASSWORD_HASH);
+    const lockedOut = p ? (await store.participantFailures(p.id)) >= config.loginLockoutThreshold : false;
+    const ok = p && p.is_active && !lockedOut && pwOk;
+    if (!ok) {
+      if (p && !pwOk) await store.bumpParticipantFailure(p.id);
+      return sendJson(res, 401, { error: "invalid_credentials" });
+    }
+
+    await store.resetParticipantFailures(p.id);
+    const hadSession = p.active_session_id !== null;
+    const sid = await store.issueSession(p.id);
+    if (hadSession) {
+      const ua = req.headers["user-agent"] || "unknown";
+      await store.logViolation(p.id, "session_takeover", `ip=${ip} ua=${ua}`);
+    }
+    const token = signJwt(
+      { sub: p.id, role: "participant", sid, cid: p.competition_id },
+      config.jwtSecret,
+      tokenTtlSec,
+    );
+    setSessionCookie(res, token, tokenTtlSec);
+    return sendJson(res, 200, { status: "ok", role: "participant" });
+  }
+
   async function session(req, res) {
     const claims = authenticate(req);
     if (!claims) return sendJson(res, 401, { error: "not_authenticated" });
@@ -135,6 +189,7 @@ export function createApp(store = createStore(), rl = createRateLimiter(), bank 
 
     if (!csrfOk(req)) return sendJson(res, 403, { error: "csrf" });
 
+    if (method === "POST" && path === "/api/auth/login") return unifiedLogin(req, res);
     if (method === "POST" && path === "/api/auth/participant/login")
       return participantLogin(req, res);
     if (method === "POST" && path === "/api/auth/admin/login") return adminLogin(req, res);

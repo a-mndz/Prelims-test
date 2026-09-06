@@ -409,30 +409,8 @@ p {
 
 .auth-panel {
   width: min(100%, 26rem);
-  padding: 1.25rem 2rem 2rem;
+  padding: 2.25rem;
   border: 1px solid var(--line);
-}
-
-.auth-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  margin: 0 -1.25rem 2rem;
-  border-bottom: 1px solid var(--line);
-}
-
-.tab-button {
-  min-height: 3rem;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-  color: var(--ink-muted);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.tab-button.active {
-  border-bottom-color: var(--accent);
-  color: var(--accent);
 }
 
 .panel-heading {

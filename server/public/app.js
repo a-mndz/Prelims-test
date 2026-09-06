@@ -130,21 +130,18 @@
     const button = document.getElementById("login-button");
     const username = document.getElementById("login-username").value.trim();
     const password = document.getElementById("login-password").value;
-    const endpoint = state.activeAuthRole === "participant"
-      ? "/api/auth/participant/login"
-      : "/api/auth/admin/login";
-
-    // Request fullscreen BEFORE the await — the user-gesture context does not survive
-    // the network round-trip in all browsers. Participants only; admins review freely.
-    if (state.activeAuthRole === "participant") enterFullscreen();
 
     showAlert("auth-alert", null);
     setButtonBusy(button, true, "Signing in...");
     try {
-      const session = await apiFetch(endpoint, { method: "POST", body: { username, password } });
+      const session = await apiFetch("/api/auth/login", { method: "POST", body: { username, password } });
       setAuthenticatedRole(session.role);
-      if (session.role === "participant") await initParticipantSession();
-      else await initAdminDashboard();
+      if (session.role === "participant") {
+        enterFullscreen();
+        await initParticipantSession();
+      } else {
+        await initAdminDashboard();
+      }
     } catch (error) {
       const message = error.code === "invalid_credentials"
         ? "Username or password is incorrect."

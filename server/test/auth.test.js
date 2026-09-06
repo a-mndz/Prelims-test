@@ -338,3 +338,37 @@ test("admin lockout is scoped to the source IP, not the account", async () => {
   assert.equal(admin.statusCode, 200, "legitimate admin from another IP is unaffected");
   assert.equal(admin.body.role, "admin");
 });
+
+test("unified login endpoint /api/auth/login authenticates both participant and admin correctly", async () => {
+  const app = await freshApp();
+
+  // Participant login via unified endpoint
+  const pRes = await call(app, {
+    method: "POST",
+    url: "/api/auth/login",
+    body: { username: "participant1", password: "change-me-participant" },
+  });
+  assert.equal(pRes.statusCode, 200);
+  assert.equal(pRes.body.role, "participant");
+  assert.ok(pRes.headers["set-cookie"]);
+
+  // Admin login via unified endpoint
+  const aRes = await call(app, {
+    method: "POST",
+    url: "/api/auth/login",
+    body: { username: "admin1", password: "change-me-admin" },
+  });
+  assert.equal(aRes.statusCode, 200);
+  assert.equal(aRes.body.role, "admin");
+  assert.ok(aRes.headers["set-cookie"]);
+
+  // Invalid password via unified endpoint
+  const badRes = await call(app, {
+    method: "POST",
+    url: "/api/auth/login",
+    body: { username: "participant1", password: "wrong-password" },
+  });
+  assert.equal(badRes.statusCode, 401);
+  assert.equal(badRes.body.error, "invalid_credentials");
+});
+
