@@ -205,6 +205,32 @@ export function createPgStore(connectionString, options = {}) {
       };
     },
 
+    async deleteParticipant(id) {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query("DELETE FROM responses WHERE participant_id = $1", [id]);
+        await client.query("DELETE FROM results WHERE participant_id = $1", [id]);
+        await client.query("DELETE FROM exam_sessions WHERE participant_id = $1", [id]);
+        await client.query("DELETE FROM violations WHERE participant_id = $1", [id]);
+        const res = await client.query(
+          "DELETE FROM participants WHERE id = $1 RETURNING id, username",
+          [id]
+        );
+        await client.query("COMMIT");
+        if (res.rows.length === 0) return null;
+        return {
+          id: Number(res.rows[0].id),
+          username: res.rows[0].username,
+        };
+      } catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+      } finally {
+        client.release();
+      }
+    },
+
     async getAdminByUsername(username) {
       const res = await pool.query(`SELECT * FROM admins WHERE username = $1`, [username]);
       if (res.rows.length === 0) return null;

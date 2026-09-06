@@ -406,3 +406,144 @@ test("admin create-participant rejects duplicates and missing fields", async () 
     assert.equal(bad.body.error, "missing_credentials");
   }
 });
+
+test("admin delete-participant endpoint deletes participant and cleans up state", async () => {
+  const app = await freshApp();
+  const { cookie: aCookie } = await loginAdmin(app);
+
+  // Create a new participant
+  const createRes = await call(app, {
+    method: "POST",
+    url: "/api/admin/participants",
+    body: { username: "todelete", password: "fresh-pass-1" },
+    headers: { cookie: aCookie },
+  });
+  assert.equal(createRes.statusCode, 201);
+  const pId = createRes.body.participant_id;
+
+  // Log in as the participant, start exam, and record an event
+  const pLogin = await call(app, {
+    method: "POST",
+    url: "/api/auth/participant/login",
+    body: { username: "todelete", password: "fresh-pass-1" },
+  });
+  assert.equal(pLogin.statusCode, 200);
+  const pCookie = cookieFrom(pLogin);
+
+  await call(app, { method: "POST", url: "/api/exam/start", headers: { cookie: pCookie } });
+  await call(app, {
+    method: "POST",
+    url: "/api/exam/event",
+    body: { type: "tab_blur" },
+    headers: { cookie: pCookie },
+  });
+
+  // Verify participant appears on leaderboard
+  const boardBefore = await call(app, {
+    method: "GET",
+    url: "/api/admin/leaderboard",
+    headers: { cookie: aCookie },
+  });
+  assert.ok(boardBefore.body.leaderboard.some((e) => e.participant_id === pId));
+
+  // Admin deletes the participant
+  const delRes = await call(app, {
+    method: "DELETE",
+    url: `/api/admin/participants/${pId}`,
+    headers: { cookie: aCookie },
+  });
+  assert.equal(delRes.statusCode, 200);
+  assert.equal(delRes.body.status, "deleted");
+  assert.equal(delRes.body.participantId, pId);
+  assert.equal(delRes.body.username, "todelete");
+
+  // Participant no longer appears on leaderboard
+  const boardAfter = await call(app, {
+    method: "GET",
+    url: "/api/admin/leaderboard",
+    headers: { cookie: aCookie },
+  });
+  assert.ok(!boardAfter.body.leaderboard.some((e) => e.participant_id === pId));
+
+  // Participant violations are purged
+  const viols = await call(app, {
+    method: "GET",
+    url: "/api/admin/violations",
+    headers: { cookie: aCookie },
+  });
+  assert.ok(!viols.body.violations.some((v) => v.participant_id === pId));
+
+  // Deleted participant cannot log in
+  const retryLogin = await call(app, {
+    method: "POST",
+    url: "/api/auth/participant/login",
+    body: { username: "todelete", password: "fresh-pass-1" },
+  });
+  assert.equal(retryLogin.statusCode, 401);
+
+  // Deleting again is 404
+  const delAgain = await call(app, {
+    method: "DELETE",
+    url: `/api/admin/participants/${pId}`,
+    headers: { cookie: aCookie },
+  });
+  assert.equal(delAgain.statusCode, 404);
+  assert.equal(delAgain.body.error, "no_participant");
+
+  // Re-creating participant with same username now succeeds
+  const recreate = await call(app, {
+    method: "POST",
+    url: "/api/admin/participants",
+    body: { username: "todelete", password: "fresh-pass-2" },
+    headers: { cookie: aCookie },
+  });
+  assert.equal(recreate.statusCode, 201);
+});
+
+test("delete participant rejects unauthenticated, participant caller, and invalid payload", async () => {
+  const app = await freshApp();
+  const { cookie: aCookie } = await loginAdmin(app);
+  const { cookie: pCookie } = await loginParticipant(app);
+
+  // Unauthenticated
+  const unauth = await call(app, {
+    method: "DELETE",
+    url: "/api/admin/participants/1",
+  });
+  assert.equal(unauth.statusCode, 403);
+
+  // Participant caller
+  const forbidden = await call(app, {
+    method: "DELETE",
+    url: "/api/admin/participants/1",
+    headers: { cookie: pCookie },
+  });
+  assert.equal(forbidden.statusCode, 403);
+
+  // DELETE /api/admin/participants with bad body
+  const badBody = await call(app, {
+    method: "DELETE",
+    url: "/api/admin/participants",
+    body: { participant_id: "invalid" },
+    headers: { cookie: aCookie },
+  });
+  assert.equal(badBody.statusCode, 400);
+  assert.equal(badBody.body.error, "missing_participant_id");
+
+  // POST alias /api/admin/participants/:id/delete works
+  const createRes = await call(app, {
+    method: "POST",
+    url: "/api/admin/participants",
+    body: { username: "aliasdel", password: "alias-pass-1" },
+    headers: { cookie: aCookie },
+  });
+  assert.equal(createRes.statusCode, 201);
+  const aliasDel = await call(app, {
+    method: "POST",
+    url: `/api/admin/participants/${createRes.body.participant_id}/delete`,
+    headers: { cookie: aCookie },
+  });
+  assert.equal(aliasDel.statusCode, 200);
+  assert.equal(aliasDel.body.status, "deleted");
+});
+

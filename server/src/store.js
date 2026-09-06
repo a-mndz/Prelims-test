@@ -70,6 +70,23 @@ export function createStore() {
       p.failed_login_at = 0;
       return p;
     },
+    deleteParticipant(id) {
+      const p = participants.get(id);
+      if (!p) return null;
+      participants.delete(id);
+      byUsername.delete(p.username);
+      examSessions.delete(id);
+      results.delete(id);
+      for (const key of responses.keys()) {
+        if (key.startsWith(`${id}:`)) responses.delete(key);
+      }
+      for (let i = violations.length - 1; i >= 0; i--) {
+        if (violations[i].participant_id === id) {
+          violations.splice(i, 1);
+        }
+      }
+      return p;
+    },
     getAdminByUsername(username) {
       return admins.get(username) || null;
     },

@@ -231,6 +231,26 @@ export function createApp(store = createStore(), rl = createRateLimiter(), bank 
         return sendJson(res, 200, { status: "unlocked", participantId: p.id });
       }
 
+      const del =
+        (method === "DELETE" && path.match(/^\/api\/admin\/participants\/(\d+)$/)) ||
+        (method === "POST" && path.match(/^\/api\/admin\/participants\/(\d+)\/delete$/));
+      if (del) {
+        const id = Number(del[1]);
+        const p = await store.deleteParticipant(id);
+        if (!p) return sendJson(res, 404, { error: "no_participant" });
+        return sendJson(res, 200, { status: "deleted", participantId: id, username: p.username });
+      }
+      if (method === "DELETE" && path === "/api/admin/participants") {
+        const { value, error } = await readJsonBody(req);
+        if (error) return sendJson(res, 400, { error });
+        const { participant_id, participantId } = value || {};
+        const id = Number(participant_id ?? participantId);
+        if (!Number.isFinite(id) || id <= 0) return sendJson(res, 400, { error: "missing_participant_id" });
+        const p = await store.deleteParticipant(id);
+        if (!p) return sendJson(res, 404, { error: "no_participant" });
+        return sendJson(res, 200, { status: "deleted", participantId: id, username: p.username });
+      }
+
       // Admin self-service credentials (admin portal). Re-authenticates with the current
       // password before applying any change: a stolen session cookie alone must not be
       // enough to lock the real admin out by rotating the username/password.

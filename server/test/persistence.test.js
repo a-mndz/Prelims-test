@@ -209,3 +209,38 @@ test("dev and test keep the documented default seeds the other suites log in wit
   assert.ok(await store.getParticipantByUsername("participant1"));
   assert.ok(await store.getAdminByUsername("admin1"));
 });
+
+test("pgStore deleteParticipant executes child cleanup in a transaction", async () => {
+  const statements = [];
+  const fakeClient = {
+    async query(sql, params) {
+      statements.push({ sql, params });
+      if (sql.includes("DELETE FROM participants")) {
+        return { rows: [{ id: 42, username: "victim" }], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+    release() {
+      statements.push({ sql: "RELEASE" });
+    },
+  };
+  const store = createPgStore("postgres://user:pw@host:5432/db", {
+    poolFactory: () => ({
+      connect: async () => fakeClient,
+      query: async () => ({ rows: [] }),
+      end: async () => {},
+    }),
+  });
+
+  const res = await store.deleteParticipant(42);
+  assert.deepEqual(res, { id: 42, username: "victim" });
+  assert.equal(statements[0].sql, "BEGIN");
+  assert.ok(statements.some((s) => s.sql.includes("DELETE FROM responses") && s.params[0] === 42));
+  assert.ok(statements.some((s) => s.sql.includes("DELETE FROM results") && s.params[0] === 42));
+  assert.ok(statements.some((s) => s.sql.includes("DELETE FROM exam_sessions") && s.params[0] === 42));
+  assert.ok(statements.some((s) => s.sql.includes("DELETE FROM violations") && s.params[0] === 42));
+  assert.ok(statements.some((s) => s.sql.includes("DELETE FROM participants") && s.params[0] === 42));
+  assert.equal(statements[statements.length - 2].sql, "COMMIT");
+  assert.equal(statements[statements.length - 1].sql, "RELEASE");
+});
+

@@ -532,7 +532,7 @@
     if (!state.leaderboard.length) {
       const row = document.createElement("tr");
       const cell = document.createElement("td");
-      cell.colSpan = 6;
+      cell.colSpan = 7;
       cell.className = "empty-cell";
       cell.textContent = "No participants are registered for this round.";
       row.appendChild(cell);
@@ -560,8 +560,46 @@
         entry.malpractice ? `Malpractice (${entry.strikes})` : "Clean",
         entry.malpractice ? "badge badge-danger" : "badge badge-clean",
       );
+      const actionCell = document.createElement("td");
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "button button-danger button-small";
+      delBtn.textContent = "Delete";
+      delBtn.setAttribute("aria-label", `Delete participant ${entry.username}`);
+      delBtn.addEventListener("click", () => deleteParticipant(entry, delBtn));
+      actionCell.appendChild(delBtn);
+      row.appendChild(actionCell);
       body.appendChild(row);
     });
+  }
+
+  function showLeaderboardAlert(message, isError) {
+    const alert = document.getElementById("leaderboard-alert");
+    if (!alert) return;
+    alert.classList.toggle("alert-danger", isError);
+    alert.classList.toggle("alert-success", !isError);
+    showAlert("leaderboard-alert", message);
+  }
+
+  async function deleteParticipant(entry, button) {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete participant "${entry.username}"?\n\nThis will permanently remove their registration, exam session, answers, and violation history.`
+    );
+    if (!confirmed) return;
+
+    if (button) setButtonBusy(button, true, "Deleting...");
+    showLeaderboardAlert(null, false);
+    try {
+      await apiFetch(`/api/admin/participants/${entry.participant_id}`, {
+        method: "DELETE",
+      });
+      showLeaderboardAlert(`Participant "${entry.username}" deleted successfully.`, false);
+      await loadLeaderboard();
+      await loadViolations();
+    } catch (error) {
+      showLeaderboardAlert(error.message || "Failed to delete participant.", true);
+      if (button) setButtonBusy(button, false);
+    }
   }
 
   const MAX_CREATE_ROWS = 10;
