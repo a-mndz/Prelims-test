@@ -80,7 +80,16 @@
 
   function setAuthenticatedRole(role) {
     state.role = role;
-    document.getElementById("user-role-badge").textContent = role === "admin" ? "Administrator" : "Participant";
+    const badge = document.getElementById("user-role-badge");
+    if (badge) {
+      if (role === "admin") {
+        badge.textContent = "Administrator";
+        badge.classList.remove("hidden");
+      } else {
+        badge.textContent = "";
+        badge.classList.add("hidden");
+      }
+    }
     document.getElementById("logout-btn").classList.remove("hidden");
   }
 
@@ -167,6 +176,11 @@
       if (session.role === "participant") await initParticipantSession();
       else await initAdminDashboard();
     } catch (error) {
+      const badge = document.getElementById("user-role-badge");
+      if (badge) {
+        badge.textContent = "";
+        badge.classList.add("hidden");
+      }
       showView("view-auth", false);
       if (error.status !== 401) showAlert("auth-alert", `Session check failed: ${error.message}`);
     }

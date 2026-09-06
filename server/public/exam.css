@@ -182,12 +182,8 @@ p {
 }
 
 .brand-copy strong {
-  font-size: 0.94rem;
-}
-
-.brand-copy span {
-  color: var(--ink-inverse-muted);
-  font-size: 0.76rem;
+  font-size: 1rem;
+  font-weight: 700;
 }
 
 .header-status {
@@ -381,49 +377,24 @@ p {
 }
 
 .auth-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(20rem, 0.75fr);
-  gap: clamp(3rem, 8vw, 8rem);
+  display: flex;
+  justify-content: center;
   align-items: center;
   min-height: calc(100dvh - 12rem);
+  padding: 2.5rem 1rem;
 }
 
-.auth-intro h1,
 .start-copy h1 {
-  max-width: 12ch;
+  max-width: 14ch;
   font-size: clamp(2.4rem, 5vw, 4.4rem);
   letter-spacing: -0.04em;
 }
 
-.auth-intro > p:not(.section-label),
-.start-copy > p:not(.section-label) {
+.start-copy > p {
   max-width: 58ch;
-  margin-top: 1.4rem;
+  margin-top: 1.2rem;
   color: var(--ink-muted);
-  font-size: 1.08rem;
-}
-
-.assurance-list {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  max-width: 46rem;
-  margin-top: 2.5rem;
-}
-
-.assurance-list div {
-  padding-top: 0.85rem;
-  border-top: 2px solid var(--line);
-}
-
-.assurance-list dt {
-  font-weight: 750;
-}
-
-.assurance-list dd {
-  margin-top: 0.25rem;
-  color: var(--ink-muted);
-  font-size: 0.86rem;
+  font-size: 1.05rem;
 }
 
 .auth-panel,
@@ -437,7 +408,9 @@ p {
 }
 
 .auth-panel {
-  padding: 0.75rem 2rem 2rem;
+  width: min(100%, 26rem);
+  padding: 1.25rem 2rem 2rem;
+  border: 1px solid var(--line);
 }
 
 .auth-tabs {
@@ -466,6 +439,7 @@ p {
   margin-bottom: 1.5rem;
 }
 
+.panel-heading h1,
 .panel-heading h2 {
   font-size: 1.55rem;
 }
@@ -1149,19 +1123,16 @@ p {
 }
 
 @media (max-width: 900px) {
-  .auth-layout,
   .start-layout,
   .exam-layout {
     grid-template-columns: 1fr;
   }
 
-  .auth-layout,
   .start-layout {
     gap: 3rem;
     min-height: auto;
   }
 
-  .auth-intro h1,
   .start-copy h1 {
     max-width: 15ch;
   }

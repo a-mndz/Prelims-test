@@ -25,7 +25,6 @@
         <span class="brand-mark" aria-hidden="true">P/</span>
         <span class="brand-copy">
           <strong>Preliminary Round</strong>
-          <span>Programming competition</span>
         </span>
       </a>
 
@@ -36,7 +35,7 @@
           <span id="timer-display">00:00</span>
         </div>
         <span id="timer-announce" class="sr-only" role="status" aria-live="polite"></span>
-        <span id="user-role-badge" class="role-badge">Guest</span>
+        <span id="user-role-badge" class="role-badge hidden"></span>
         <button id="theme-toggle" class="button button-quiet" type="button" aria-pressed="false" aria-label="Switch to dark theme">Dark</button>
         <button id="logout-btn" class="button button-quiet hidden" type="button">Log out</button>
       </div>
@@ -50,17 +49,6 @@
       </section>
 
       <section id="view-auth" class="view-section auth-layout hidden" aria-labelledby="auth-title">
-        <div class="auth-intro">
-          <p class="section-label">Candidate access</p>
-          <h1 id="auth-title">Stay focused on the questions.</h1>
-          <p>Answers save after every selection. Timing and submission are enforced by the server, even if this page disconnects.</p>
-          <dl class="assurance-list">
-            <div><dt>Single attempt</dt><dd>Your session stays tied to this account.</dd></div>
-            <div><dt>Server timed</dt><dd>Refreshing does not reset the clock.</dd></div>
-            <div><dt>Private scoring</dt><dd>Results remain available to administrators only.</dd></div>
-          </dl>
-        </div>
-
         <div class="auth-panel">
           <div class="auth-tabs" role="group" aria-label="Sign-in role">
             <button id="tab-participant" class="tab-button active" type="button" aria-pressed="true" data-role="participant">Participant</button>
@@ -68,7 +56,7 @@
           </div>
 
           <div class="panel-heading">
-            <h2>Sign in</h2>
+            <h1 id="auth-title">Sign in</h1>
             <p id="auth-description">Use credentials issued for this round.</p>
           </div>
           <div id="auth-alert" class="alert alert-danger hidden" role="alert"></div>
@@ -89,7 +77,6 @@
 
       <section id="view-start" class="view-section start-layout hidden" aria-labelledby="start-title">
         <div class="start-copy">
-          <p class="section-label">Before you begin</p>
           <h1 id="start-title">Ready for your preliminary round?</h1>
           <p>Starting is final. Your server-side clock begins immediately and continues through refreshes or brief connection loss.</p>
           <div id="start-alert" class="alert alert-danger hidden" role="alert"></div>
@@ -155,7 +142,6 @@
 
       <section id="view-submitted" class="view-section submitted-view hidden" aria-labelledby="submitted-title">
         <div class="status-mark" aria-hidden="true">✓</div>
-        <p class="section-label">Attempt locked</p>
         <h1 id="submitted-title">Exam submitted</h1>
         <p id="submitted-note">Your responses were recorded. Results will be shared after administrators complete grading and review.</p>
       </section>
@@ -163,7 +149,6 @@
       <section id="view-admin" class="view-section admin-view hidden" aria-labelledby="admin-title">
         <div class="admin-heading">
           <div>
-            <p class="section-label">Administrator</p>
             <h1 id="admin-title">Results and review</h1>
             <p>Scores are final after submission. Violation signals support manual review — they do not prove misconduct by themselves.</p>
           </div>
@@ -254,7 +239,6 @@
     <dialog id="submit-modal" class="submit-dialog" aria-labelledby="submit-title" aria-describedby="submit-description">
       <form method="dialog">
         <div class="dialog-heading">
-          <p class="section-label">Submission confirmation</p>
           <h2 id="submit-title">Confirm Exam Submission?</h2>
           <p id="submit-description">Please review your question summary before submitting.</p>
         </div>
